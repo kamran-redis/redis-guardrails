@@ -146,7 +146,7 @@ Design decisions on this surface:
 ### `evaluate_input(text, include_trace=False)`
 
 1. `chunking.chunk_text(text)` → list of `Chunk` (whole text if it fits the embedding model's max input; overlapping chunks on paragraph/sentence/word boundaries otherwise, guaranteeing every character appears in at least one chunk).
-2. `store.embed([c.text for c in chunks])` — timed separately as `embedding_ms`. Embedding-cache reads are bypassed here so this always reflects real embedding creation.
+2. `store.embed([c.evaluated_text for c in chunks])` — timed separately as `embedding_ms`. `evaluated_text` (not `text`) is what's embedded, since for `evaluate_output` it carries the `"User: ...\nAssistant: "` prefix; embedding `text` instead would make the `request_text` context a display-only no-op with zero effect on actual matching. Embedding-cache reads are bypassed here so this always reflects real embedding creation.
 3. For each chunk vector, `store.search(vector, stage="input")` — queries the `input` `SemanticRouter` with `aggregation_method=DistanceAggregationMethod.min` explicitly set (RedisVL's default is `avg`, which would violate the "never average" rule), returning one `Match` per guardrail whose distance for this chunk is within its threshold. Timed separately as `search_ms`.
 4. All per-chunk matches across all chunks are flattened and passed to `evaluator.decide(matches)`:
    - Reduce to the minimum distance per `rule_id` across all chunks (never averaged) — this is a second reduction beyond RedisVL's own per-chunk `min` aggregation across a route's examples, because a rule can also match in more than one chunk.
