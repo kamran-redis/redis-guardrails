@@ -898,16 +898,7 @@ class GuardrailStore:
             route = router.get(guardrail_id)
             if route is None:
                 continue
-            references = router.get_route_references(route_name=guardrail_id)
-            return Guardrail(
-                id=route.name,
-                stage=stage,
-                category=route.metadata["category"],
-                description=route.metadata["description"],
-                examples=[ref["reference"] for ref in references],
-                action=route.metadata["action"],
-                match_threshold=route.distance_threshold,
-            )
+            return self._to_guardrail(stage, router, route)
         return None
 
     def list(self, stage: Stage | None = None) -> list[Guardrail]:
@@ -916,19 +907,20 @@ class GuardrailStore:
         for s in stages:
             router = self._routers[s]
             for route in router.routes:
-                references = router.get_route_references(route_name=route.name)
-                result.append(
-                    Guardrail(
-                        id=route.name,
-                        stage=s,
-                        category=route.metadata["category"],
-                        description=route.metadata["description"],
-                        examples=[ref["reference"] for ref in references],
-                        action=route.metadata["action"],
-                        match_threshold=route.distance_threshold,
-                    )
-                )
+                result.append(self._to_guardrail(s, router, route))
         return result
+
+    def _to_guardrail(self, stage: Stage, router: SemanticRouter, route: Route) -> Guardrail:
+        references = router.get_route_references(route_name=route.name)
+        return Guardrail(
+            id=route.name,
+            stage=stage,
+            category=route.metadata["category"],
+            description=route.metadata["description"],
+            examples=[ref["reference"] for ref in references],
+            action=route.metadata["action"],
+            match_threshold=route.distance_threshold,
+        )
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         try:
