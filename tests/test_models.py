@@ -40,3 +40,17 @@ def test_out_of_range_threshold_raises():
 def test_zero_examples_raises():
     with pytest.raises(InvalidGuardrailError):
         validate_guardrail(_guardrail(examples=[]))
+
+
+def test_id_with_apostrophe_raises():
+    with pytest.raises(InvalidGuardrailError):
+        validate_guardrail(_guardrail(id="bob's-guardrail"))
+
+
+def test_empty_id_raises():
+    with pytest.raises(InvalidGuardrailError):
+        validate_guardrail(_guardrail(id=""))
+
+
+def test_normal_alphanumeric_id_passes():
+    validate_guardrail(_guardrail(id="prompt-injection-input-001"))  # must not raise

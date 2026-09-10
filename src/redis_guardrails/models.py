@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from typing import Literal
 
@@ -8,6 +9,19 @@ Action = Literal["ALLOW", "FLAG", "BLOCK"]
 
 _VALID_STAGES = {"input", "output"}
 _VALID_ACTIONS = {"ALLOW", "FLAG", "BLOCK"}
+
+# Guardrail IDs become RedisVL route names, which get interpolated unescaped
+# into an internal RediSearch FILTER expression (see SemanticRouter's
+# _distance_threshold_filter). An ID containing a character like an
+# apostrophe breaks that filter's syntax -- add_guardrail succeeds (no
+# error), but every subsequent evaluate_input/evaluate_output call on that
+# stage then raises internally and gets translated to INDETERMINATE forever
+# (route_config is persisted, so it survives a process restart). Restricting
+# IDs to a safe character set up front prevents that silent, permanent
+# outage. This also naturally rejects empty/whitespace-only IDs (which
+# otherwise raise a raw SearchError wrapping a pydantic validation error
+# instead of InvalidGuardrailError).
+_VALID_ID_PATTERN = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 
 
 @dataclass
@@ -22,6 +36,12 @@ class Guardrail:
 
 
 def validate_guardrail(guardrail: Guardrail) -> None:
+    if not _VALID_ID_PATTERN.match(guardrail.id):
+        raise InvalidGuardrailError(
+            f"guardrail id {guardrail.id!r} is invalid; must match "
+            f"{_VALID_ID_PATTERN.pattern!r} (letters, digits, '.', '_', ':', "
+            "'-', 1-128 characters)"
+        )
     if guardrail.stage not in _VALID_STAGES:
         raise InvalidGuardrailError(
             f"guardrail {guardrail.id!r} has invalid stage {guardrail.stage!r}; "

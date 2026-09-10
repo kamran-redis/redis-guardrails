@@ -9,6 +9,7 @@ from redis_guardrails.errors import (
     DuplicateGuardrailError,
     EmbeddingError,
     GuardrailNotFoundError,
+    IncompleteCoverageError,
     SearchError,
 )
 from redis_guardrails.models import Chunk, Guardrail, Match, Stage
@@ -63,7 +64,11 @@ class GuardrailStore:
         # name/references/metadata/distance_threshold), so this sidesteps
         # from_existing()'s custom-vectorizer limitation entirely while
         # avoiding both the empty-.routes bug and the config-clobber bug.
-        routes = [] if overwrite else GuardrailStore._load_existing_routes(name, redis_url)
+        routes = []
+        if overwrite:
+            GuardrailStore._drop_index(name, redis_url)
+        else:
+            routes = GuardrailStore._load_existing_routes(name, redis_url)
         return SemanticRouter(
             name=name,
             routes=routes,
@@ -74,6 +79,36 @@ class GuardrailStore:
             redis_url=redis_url,
             overwrite=overwrite,
         )
+
+    @staticmethod
+    def _drop_index(name: str, redis_url: str) -> None:
+        """Explicitly drop the index and its documents before a real fresh start.
+
+        RedisVL's SemanticRouter.__init__ calls self._index.create(overwrite=
+        overwrite, drop=False) internally. With drop=False, overwrite=True only
+        recreates the index DEFINITION — any reference hash documents already
+        indexed under the same key prefix are left in Redis untouched, and get
+        silently re-indexed alongside whatever routes the new construction
+        adds. That means a caller who asks for overwrite=True (expecting a
+        clean slate) can end up with BOTH old and new data matchable.
+
+        Fix: drop the index and its documents ourselves, directly via
+        FT.DROPINDEX <name> DD, before SemanticRouter.__init__ ever runs — so
+        that when it calls .create(overwrite=True, drop=False), the index
+        genuinely does not exist yet and creation is a true fresh start.
+
+        Dropping an index that doesn't exist yet raises a ResponseError from
+        Redis (e.g. "Unknown index name"); that's the expected first-time-ever
+        case, not a real failure, so it's swallowed as a no-op. Same narrow,
+        direct-connection pattern as _load_existing_routes.
+        """
+        client = Redis.from_url(redis_url)
+        try:
+            client.execute_command("FT.DROPINDEX", name, "DD")
+        except Exception:
+            pass
+        finally:
+            client.close()
 
     @staticmethod
     def _load_existing_routes(name: str, redis_url: str) -> list[Route]:
@@ -158,10 +193,62 @@ class GuardrailStore:
         )
 
     def embed(self, texts: list[str]) -> list[list[float]]:
+        self._check_token_limits(texts)
         try:
-            return self._vectorizer.embed_many(texts)
+            # skip_cache=True: bypass any embedding cache so embedding_ms
+            # (measured by the caller around this call) always reflects a
+            # genuine embedding computation, never a cache hit. No
+            # vectorizer in this codebase has caching configured today, so
+            # this is currently a no-op -- but it keeps the code honest
+            # about the timing guarantee if that ever changes.
+            return self._vectorizer.embed_many(texts, skip_cache=True)
         except Exception as exc:
             raise EmbeddingError(f"failed to embed {len(texts)} chunk(s): {exc}") from exc
+
+    def _check_token_limits(self, texts: list[str]) -> None:
+        """Best-effort guard against embedding-model truncation being silent.
+
+        DEFAULT_MAX_CHARS in chunking.py is a character budget with no fixed
+        relationship to an embedding model's actual token limit. Text that
+        fits the character budget can still exceed the model's token limit
+        (verified for token-dense content like CJK text or URLs) --
+        sentence-transformers then truncates internally and silently, and
+        the resulting embedding covers only part of the text even though the
+        evaluation still reports status="COMPLETED". That violates the rule
+        that un-inspected text must never be treated as allowed.
+
+        This is intentionally scoped to the HFTextVectorizer-backed path:
+        HFTextVectorizer wraps a sentence_transformers.SentenceTransformer at
+        `._client`, which exposes `.max_seq_length` (the model's true token
+        budget) and `.tokenizer` (to count tokens without embedding). Any
+        other vectorizer -- including a custom one like HashVectorizer, or a
+        future API-backed one such as OpenAI's -- won't have both of these
+        attributes, and the check is a silent no-op for it: the embedding
+        provider/model choice itself is out of scope here, so this must not
+        become a hard requirement for every vectorizer type.
+        """
+        client = getattr(self._vectorizer, "_client", None)
+        max_seq_length = getattr(client, "max_seq_length", None)
+        tokenizer = getattr(client, "tokenizer", None)
+        if max_seq_length is None or tokenizer is None:
+            return
+
+        for text in texts:
+            try:
+                token_count = len(tokenizer(text, add_special_tokens=True)["input_ids"])
+            except Exception:
+                # Best-effort only: if the tokenizer itself can't process
+                # this text for some unrelated reason, don't block on it --
+                # any real problem will surface (more informatively) from
+                # the embed_many() call that follows.
+                continue
+            if token_count > max_seq_length:
+                raise IncompleteCoverageError(
+                    f"text requires {token_count} tokens, which exceeds the "
+                    f"embedding model's max_seq_length={max_seq_length}; "
+                    "embedding it would silently truncate the text and "
+                    "produce an embedding covering only part of it"
+                )
 
     def search(self, vector: list[float], chunk: Chunk, stage: Stage) -> list[Match]:
         router = self._routers[stage]
@@ -169,11 +256,20 @@ class GuardrailStore:
             raise SearchError(f"no guardrails configured for stage {stage!r}")
 
         try:
+            # No distance_threshold kwarg here: route_many's distance_threshold
+            # override is deprecated and, per RedisVL's implementation, isn't
+            # actually read for filtering anyway -- passing it only produced a
+            # DeprecationWarning on every call. The real filtering contract is
+            # each route's own distance_threshold (set at Route construction
+            # in _to_route) combined with this router's routing_config; that's
+            # what determines which candidates route_many returns here.
+            # evaluator.py's own `distance <= threshold` re-check downstream
+            # is intentional defense-in-depth against that contract, not
+            # redundant dead logic -- keep both.
             route_matches = router.route_many(
                 vector=vector,
                 max_k=_MAX_K,
                 aggregation_method=DistanceAggregationMethod.min,
-                distance_threshold=None,
             )
         except Exception as exc:
             raise SearchError(f"search failed for stage {stage!r}: {exc}") from exc

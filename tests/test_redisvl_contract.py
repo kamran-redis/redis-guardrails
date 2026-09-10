@@ -36,7 +36,7 @@ class HashVectorizer(BaseVectorizer):
 
 
 @pytest.mark.integration
-def test_route_references_and_route_many_shapes(redis_url):
+def test_route_references_and_route_many_shapes(redis_url, allow_test_overwrite):
     vectorizer = HashVectorizer()
     route = Route(
         name="contract-test-route",
