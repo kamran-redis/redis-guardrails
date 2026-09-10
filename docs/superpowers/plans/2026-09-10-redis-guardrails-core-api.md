@@ -1315,6 +1315,7 @@ class FakeStore:
         self.matches_by_text: dict[str, list[Match]] = {}
         self.raise_on_embed: Exception | None = None
         self.raise_on_search: Exception | None = None
+        self.embedded_texts: list[str] = []
 
     def add(self, guardrail: Guardrail) -> None:
         self._guardrails[guardrail.id] = guardrail
@@ -1337,6 +1338,7 @@ class FakeStore:
         return [g for g in values if stage is None or g.stage == stage]
 
     def embed(self, texts: list[str]) -> list[list[float]]:
+        self.embedded_texts.extend(texts)
         if self.raise_on_embed is not None:
             raise self.raise_on_embed
         return [[0.0] for _ in texts]
@@ -1440,6 +1442,24 @@ def test_evaluate_output_with_request_text_uses_dialogue_prefix(service, store):
     assert result.action == "FLAG"
 
 
+def test_evaluate_output_embeds_the_prefixed_text_not_the_raw_text(service, store):
+    # Regression test: it's not enough for the prefix to show up in
+    # Match.evaluated_text / chunks trace output — it must be what's
+    # actually sent to store.embed(), or request_text has zero effect on
+    # real vector search and is a pure no-op in production. FakeStore's
+    # matches_by_text lookup alone can't catch this (it keys on
+    # chunk.evaluated_text directly, bypassing whatever was embedded) —
+    # this test checks store.embedded_texts, which records the literal
+    # argument passed to embed().
+    service.evaluate_output("it is obvious", request_text="what is my balance?")
+    assert store.embedded_texts == ["User: what is my balance?\nAssistant: it is obvious"]
+
+
+def test_evaluate_input_embeds_raw_text_unprefixed(service, store):
+    service.evaluate_input("hello there")
+    assert store.embedded_texts == ["hello there"]
+
+
 def test_embedding_failure_returns_indeterminate(service, store):
     store.raise_on_embed = SearchError("boom")
     result = service.evaluate_input("anything")
@@ -1535,7 +1555,12 @@ class GuardrailService:
             chunks = chunk_text(text, source=stage, prefix=prefix)
 
             embedding_start = time.perf_counter()
-            vectors = self._store.embed([c.text for c in chunks])
+            # Embed evaluated_text (which includes the "User: ...\nAssistant: "
+            # prefix for evaluate_output when request_text is given), NOT
+            # c.text (the raw slice). Embedding c.text would make request_text
+            # a pure display-only no-op: the vector search itself would never
+            # see the dialogue context, defeating the entire feature.
+            vectors = self._store.embed([c.evaluated_text for c in chunks])
             embedding_ms = (time.perf_counter() - embedding_start) * 1000
 
             search_start = time.perf_counter()
@@ -1576,7 +1601,7 @@ class GuardrailService:
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `pytest tests/test_service.py -v`
-Expected: all 9 tests PASS.
+Expected: all 11 tests PASS.
 
 - [ ] **Step 6: Run the full non-integration suite**
 
