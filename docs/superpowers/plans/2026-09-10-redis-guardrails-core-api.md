@@ -96,7 +96,17 @@ def _redis_stack_available(redis_url: str) -> bool:
         return False
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
+# CORRECTED (Task 7): Task 7's `service` fixture is module-scoped (built
+# once, reused by both integration tests in that module — expensive to
+# rebuild per-test since it loads a real embedding model and indexes real
+# data). A fixture cannot depend on a narrower-scoped one, and pytest's
+# default scope is "function" — so a module-scoped fixture requesting this
+# one at "function" scope fails immediately with ScopeMismatch, before ever
+# reaching Redis or the model. Session scope is safe here: this fixture has
+# no side effects (only pings Redis with FT._LIST and returns a URL string),
+# so sharing it across the whole test session doesn't change behavior for
+# existing function-scoped consumers.
 def redis_url() -> str:
     url = os.environ.get("REDIS_URL", "redis://localhost:6379")
     if not _redis_stack_available(url):
