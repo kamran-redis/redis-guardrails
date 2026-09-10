@@ -1288,7 +1288,14 @@ git commit -m "feat: add pure matching-policy evaluator"
 
 - [ ] **Step 1: Add `FakeStore` to `tests/fakes.py`**
 
-Append to `tests/fakes.py`:
+`FakeStore` defines a method named `list()`, which shadows the builtin `list`
+in the class namespace — the same issue Task 4 hit in `store.py`. Since
+`tests/fakes.py` doesn't yet have `from __future__ import annotations` (Task
+4's `HashVectorizer` didn't need it, having no `list` method), add that
+import as the very first line of the file — not just appended at the
+bottom — before adding the code below.
+
+Append the rest to `tests/fakes.py` (after the new first-line import):
 
 ```python
 from redis_guardrails.errors import GuardrailNotFoundError
