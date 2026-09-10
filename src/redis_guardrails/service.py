@@ -70,7 +70,7 @@ class GuardrailService:
             chunks = chunk_text(text, source=stage, prefix=prefix)
 
             embedding_start = time.perf_counter()
-            vectors = self._store.embed([c.text for c in chunks])
+            vectors = self._store.embed([c.evaluated_text for c in chunks])
             embedding_ms = (time.perf_counter() - embedding_start) * 1000
 
             search_start = time.perf_counter()

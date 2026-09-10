@@ -86,6 +86,24 @@ def test_evaluate_output_with_request_text_uses_dialogue_prefix(service, store):
     assert result.action == "FLAG"
 
 
+def test_evaluate_output_embeds_the_prefixed_text_not_the_raw_text(service, store):
+    # Regression test: it's not enough for the prefix to show up in
+    # Match.evaluated_text / chunks trace output — it must be what's
+    # actually sent to store.embed(), or request_text has zero effect on
+    # real vector search and is a pure no-op in production. FakeStore's
+    # matches_by_text lookup alone can't catch this (it keys on
+    # chunk.evaluated_text directly, bypassing whatever was embedded) —
+    # this test checks store.embedded_texts, which records the literal
+    # argument passed to embed().
+    service.evaluate_output("it is obvious", request_text="what is my balance?")
+    assert store.embedded_texts == ["User: what is my balance?\nAssistant: it is obvious"]
+
+
+def test_evaluate_input_embeds_raw_text_unprefixed(service, store):
+    service.evaluate_input("hello there")
+    assert store.embedded_texts == ["hello there"]
+
+
 def test_embedding_failure_returns_indeterminate(service, store):
     store.raise_on_embed = SearchError("boom")
     result = service.evaluate_input("anything")

@@ -52,6 +52,7 @@ class FakeStore:
         self.matches_by_text: dict[str, list[Match]] = {}
         self.raise_on_embed: Exception | None = None
         self.raise_on_search: Exception | None = None
+        self.embedded_texts: list[str] = []
 
     def add(self, guardrail: Guardrail) -> None:
         self._guardrails[guardrail.id] = guardrail
@@ -74,6 +75,7 @@ class FakeStore:
         return [g for g in values if stage is None or g.stage == stage]
 
     def embed(self, texts: list[str]) -> list[list[float]]:
+        self.embedded_texts.extend(texts)
         if self.raise_on_embed is not None:
             raise self.raise_on_embed
         return [[0.0] for _ in texts]
