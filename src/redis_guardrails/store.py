@@ -80,14 +80,20 @@ class GuardrailStore:
         """Read a router's persisted route config directly from Redis.
 
         Used instead of SemanticRouter.from_existing(), which cannot
-        reconstruct a custom (non-builtin) vectorizer. Returns [] if the
-        router has never been created yet (no stored config).
+        reconstruct a custom (non-builtin) vectorizer. Returns [] only
+        when the router has never been created yet — RedisJSON returns
+        None for a missing key rather than raising, so that case is
+        handled by the isinstance check below, not by catching an
+        exception. A genuine connection/protocol failure here is left to
+        propagate rather than being swallowed into an empty list: silently
+        treating "we couldn't reach Redis" the same as "nothing exists
+        yet" would risk reconstructing with routes=[] against an index
+        that DOES have data — reintroducing the exact route_config-
+        clobbering bug this method exists to prevent.
         """
         client = Redis.from_url(redis_url)
         try:
             stored = client.json().get(f"{name}:route_config")
-        except Exception:
-            return []
         finally:
             client.close()
         if not isinstance(stored, dict):
