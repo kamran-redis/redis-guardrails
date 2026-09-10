@@ -63,3 +63,25 @@ def test_exceeding_max_chunks_raises():
     text = "word " * 1000
     with pytest.raises(IncompleteCoverageError):
         chunk_text(text, source="input", max_chars=20, overlap_chars=2, max_chunks=3)
+
+
+def test_paragraph_boundary_does_not_cause_degenerate_creeping_chunks():
+    # A short boundary-less run followed by a long word-boundary-rich run,
+    # under default chunking parameters. If the boundary search anchors on
+    # `start` alone instead of the furthest point already covered, the
+    # single paragraph boundary keeps winning as "nearest" on every
+    # iteration while `start` only creeps forward by 1 each time, burning
+    # through max_chunks on dozens of near-empty, fully-redundant chunks.
+    text = "X" * 500 + "\n\n" + ("word " * 2000)
+    chunks = chunk_text(text, source="input")
+
+    assert len(chunks) < 20  # genuine progress: ~700 new chars covered per chunk after the first
+
+    ends = [c.end_character for c in chunks]
+    assert ends == sorted(set(ends)), "a chunk made zero forward progress (duplicate/non-increasing end)"
+
+    covered = [False] * len(text)
+    for c in chunks:
+        for i in range(c.start_character, c.end_character):
+            covered[i] = True
+    assert all(covered)

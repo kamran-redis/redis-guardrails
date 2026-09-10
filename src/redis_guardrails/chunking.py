@@ -36,6 +36,7 @@ def chunk_text(
     boundaries = _find_boundaries(text)
     chunks: list[Chunk] = []
     start = 0
+    covered_until = 0  # max end_character reached by any chunk emitted so far
     index = 0
     while start < len(text):
         if index >= max_chunks:
@@ -46,7 +47,17 @@ def chunk_text(
 
         end = min(start + budget, len(text))
         if end < len(text):
-            boundary = _nearest_boundary(boundaries, start, end)
+            # Search from max(start, covered_until), not just start: if we
+            # search from `start` alone, a boundary already consumed by an
+            # earlier chunk (within the overlap region) keeps winning as
+            # "nearest" on every subsequent iteration, while `start` only
+            # creeps forward by 1 each time (since end-overlap_chars stays
+            # below the already-covered point) — producing dozens of
+            # near-empty, redundant chunks that make zero forward progress
+            # until max_chunks is exhausted. Anchoring the search past
+            # covered_until forces each new chunk to end further into
+            # genuinely new territory.
+            boundary = _nearest_boundary(boundaries, max(start, covered_until), end)
             if boundary is None:
                 raise IncompleteCoverageError(
                     "found a span with no paragraph, sentence, or word boundary "
@@ -65,6 +76,7 @@ def chunk_text(
                 evaluated_text=prefix + chunk_slice,
             )
         )
+        covered_until = max(covered_until, end)
 
         if end >= len(text):
             break
@@ -82,9 +94,9 @@ def _find_boundaries(text: str) -> dict[str, list[int]]:
     return {"paragraph": paragraph, "sentence": sentence, "word": word}
 
 
-def _nearest_boundary(boundaries: dict[str, list[int]], start: int, end: int) -> int | None:
+def _nearest_boundary(boundaries: dict[str, list[int]], lower: int, end: int) -> int | None:
     for kind in ("paragraph", "sentence", "word"):
-        candidates = [b for b in boundaries[kind] if start < b <= end]
+        candidates = [b for b in boundaries[kind] if lower < b <= end]
         if candidates:
             return max(candidates)
     return None
