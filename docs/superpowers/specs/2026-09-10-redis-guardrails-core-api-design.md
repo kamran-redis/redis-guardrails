@@ -2,17 +2,17 @@
 
 ## Status
 
-Approved design, superseding the API/implementation shape (not the matching
-policy or feature scope) described in `docs/core-api-handoff.md`. That
-document's matching policy, chunking rules, and RedisVL usage notes remain
-the source of truth for *behavior*; this document is the source of truth for
-*structure* — how the code is organized and what the public API looks like.
+Approved design. `docs/vector-guardrail-algorithm.md` remains the source of
+truth for the matching *algorithm* (chunking, distance reduction, action
+priority); this document is the source of truth for *structure and API* —
+how the code is organized, what the public API looks like, and the
+RedisVL-specific operational constraints the implementation must respect.
 
 ## Goal
 
 A Python-first guardrails service, built on RedisVL `SemanticRouter`, that is
 easy to read, easy to test, and easy to extend — without sacrificing any of
-the functional behavior in the handoff doc (dual-stage routing, chunking for
+the functional behavior described below (dual-stage routing, chunking for
 long text, `INDETERMINATE` as a first-class outcome, and separately-measured
 embedding/search performance).
 
@@ -172,6 +172,16 @@ For now, the design assumes each chunk arrives with its per-guardrail
 classification (rule/category/action/distance) already attached, and this
 reference-level lookup is deferred rather than built.
 
+## RedisVL Operational Constraints
+
+- Two `SemanticRouter` instances, named `guardrails-input` and `guardrails-output`, give explicit stage isolation while `service.py` still exposes one unified API.
+- `store.py` owns the Redis connections and both routers; it is the only file that constructs or reconstructs them.
+- If a router is reconstructed via `from_existing()`, it must be reconstructed with its complete route configuration — never attach using an empty or partial local route list, and take extra care with custom vectorizers, since vectorizer configuration may not reconstruct correctly.
+- RedisVL route mutations (`add`/`update`/`delete`) are not transactional. `store.py` must use best-effort cleanup/rollback on partial failure.
+- Assume a single writer process for now — router route lists are cached locally, so concurrent writers from separate processes can drift out of sync.
+- If an unrecoverable consistency error occurs, the recovery path is to reconstruct both routers from Redis, not to patch state in place.
+- Verify the current appropriate RedisVL version before implementation (an earlier prototype needed `>=0.27.1`, since `0.20.0` lacked required dynamic route operations).
+
 ## Error Handling
 
 | Condition | Surfaced as |
@@ -194,13 +204,13 @@ INDETERMINATE."
 - **`test_evaluator.py`** — the highest-value tests. Pure Python `Match` lists in, `Decision` out. No Redis. Covers: category collapsing, action priority ordering, primary-match tie-breaking (margin then ID), empty-matches → ALLOW, multi-chunk min-reduction for the same rule.
 - **`test_chunking.py`** — plain text fixtures. Covers: whole-text-fits case, overlap, boundary preference (paragraph > sentence > word), full-coverage guarantee, and the max-chunk-count limit triggering `IncompleteCoverageError`.
 - **`test_service.py`** — `service.py` wired against a fake `store` (`tests/fakes.py`) to test the façade logic itself (search-text assembly for `evaluate_output` with/without `request_text`, error → `INDETERMINATE` translation, `include_trace` behavior) without needing real Redis.
-- **`test_integration.py`** — runs against real Redis/RedisVL. Loads `data/guardrails.json` through `add_guardrail()` (per the handoff doc, there is intentionally no bulk loader — the loader is test/ops code that calls `add_guardrail()` per item) and runs `data/testdata.json` through the real service to measure pass/fail, category/action accuracy, false positives/negatives, and embedding/search performance — per the "Later Phases" section of the handoff doc.
+- **`test_integration.py`** — runs against real Redis/RedisVL. There is intentionally no bulk loader in the public API — a loader is test/ops code that reads a file and calls `add_guardrail()` once per item, which permits individual additions, updates, deletions, and stage changes. This test loads `data/guardrails.json` that way and runs `data/testdata.json` (a separate set, never indexed) through the real service to measure pass/fail, category/action accuracy, false positives/negatives, and embedding/search performance measured separately.
 
-## Explicitly Deferred (unchanged from the handoff doc's "Remaining Choices")
+## Explicitly Deferred
 
 - Embedding provider and model.
 - Redis deployment and authentication settings.
 - Production threshold values (seed data uses `0.5` everywhere as a placeholder).
-- Whether multi-process writers are eventually required (design assumes one writer process, per the handoff doc's RedisVL constraints).
+- Whether multi-process writers are eventually required (design assumes one writer process — see RedisVL Operational Constraints above).
 - Reference/example-level match tracing (see "Note on reference-level matching" above).
-- REST wrapper and GUI (explicitly phase 5/6 in the handoff doc).
+- REST wrapper and GUI — future phases once the core API is implemented.
