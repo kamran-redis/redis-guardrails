@@ -861,6 +861,14 @@ Expected: FAIL — `ModuleNotFoundError: No module named 'redis_guardrails.store
 - [ ] **Step 4: Write `store.py`**
 
 ```python
+from __future__ import annotations  # required: a method below is named `list`,
+# which shadows the builtin in this class's namespace once class-body
+# execution finishes defining it — without deferred annotation evaluation,
+# later `list[...]` annotations (e.g. on embed()/search()) raise
+# `TypeError: 'function' object is not subscriptable` at import time.
+# Confirmed against Python 3.12/3.14 in this task.
+
+from redis import Redis
 from redisvl.extensions.router import Route, RoutingConfig, SemanticRouter
 from redisvl.extensions.router.schema import DistanceAggregationMethod
 from redisvl.utils.vectorize.base import BaseVectorizer
@@ -898,18 +906,31 @@ class GuardrailStore:
         # like HashVectorizer, whose .type is the inherited "base"). See
         # Task 1's tests/test_redisvl_contract.py for the reproduction.
         #
-        # Instead, always construct via SemanticRouter(...) directly and let
-        # RedisVL's own overwrite=False + existing-index check inside the
-        # constructor attach without wiping. This task's own
-        # test_second_store_instance_sees_guardrails_added_by_first (which
-        # also checks .list(), not just .get()) is the empirical proof this
-        # actually reflects previously-added routes correctly — if it
-        # doesn't, that test fails and this needs a different strategy
-        # (e.g. holding the router object alive across the process instead
-        # of reconstructing it).
+        # CORRECTED (empirically, via test_second_store_instance_sees_guardrails_added_by_first):
+        # simply constructing SemanticRouter(routes=[], overwrite=False)
+        # against an index that already exists is NOT enough to "attach
+        # without wiping". Confirmed by reading redisvl 0.27.2's
+        # SemanticRouter.__init__/_initialize_index: when the index already
+        # exists and overwrite=False, the constructor does NOT call
+        # _add_routes(self.routes) to repopulate self.routes from what's
+        # already indexed — self.routes stays exactly [] (what was passed
+        # in), which breaks .get()/.list() (both read self.routes). Worse,
+        # __init__ unconditionally re-persists f"{name}:route_config" from
+        # self.to_dict() at the end regardless of existed/overwrite — so
+        # constructing with routes=[] against an existing index silently
+        # CLOBBERS the previously-stored route config with an empty one,
+        # even though the indexed hash documents themselves survive.
+        #
+        # Fix: read that same f"{name}:route_config" JSON key ourselves
+        # first and pass the real routes back into the constructor. Route
+        # needs no vectorizer to reconstruct (just name/references/
+        # metadata/distance_threshold), so this sidesteps from_existing()'s
+        # custom-vectorizer limitation while fixing both the empty-.routes
+        # bug and the config-clobber bug.
+        routes = [] if overwrite else GuardrailStore._load_existing_routes(name, redis_url)
         return SemanticRouter(
             name=name,
-            routes=[],
+            routes=routes,
             vectorizer=vectorizer,
             routing_config=RoutingConfig(
                 max_k=_MAX_K, aggregation_method=DistanceAggregationMethod.min
@@ -917,6 +938,31 @@ class GuardrailStore:
             redis_url=redis_url,
             overwrite=overwrite,
         )
+
+    @staticmethod
+    def _load_existing_routes(name: str, redis_url: str) -> list[Route]:
+        """Read a router's persisted route config directly from Redis.
+
+        Used instead of SemanticRouter.from_existing(), which cannot
+        reconstruct a custom (non-builtin) vectorizer. Returns [] only
+        when the router has never been created yet — RedisJSON returns
+        None for a missing key rather than raising, so that case is
+        handled by the isinstance check below, not by catching an
+        exception. A genuine connection/protocol failure here is left to
+        propagate rather than being swallowed into an empty list: silently
+        treating "we couldn't reach Redis" the same as "nothing exists
+        yet" would risk reconstructing with routes=[] against an index
+        that DOES have data — reintroducing the exact route_config-
+        clobbering bug this method exists to prevent.
+        """
+        client = Redis.from_url(redis_url)
+        try:
+            stored = client.json().get(f"{name}:route_config")
+        finally:
+            client.close()
+        if not isinstance(stored, dict):
+            return []
+        return [Route(**route) for route in stored.get("routes", [])]
 
     def add(self, guardrail: Guardrail) -> None:
         if self.get(guardrail.id) is not None:
