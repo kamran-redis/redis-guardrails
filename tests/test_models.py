@@ -1,0 +1,42 @@
+import pytest
+
+from redis_guardrails.errors import InvalidGuardrailError
+from redis_guardrails.models import Guardrail, validate_guardrail
+
+
+def _guardrail(**overrides) -> Guardrail:
+    defaults = dict(
+        id="test-001",
+        stage="input",
+        category="test_category",
+        description="a test guardrail",
+        examples=["example one"],
+        action="BLOCK",
+        match_threshold=0.5,
+    )
+    defaults.update(overrides)
+    return Guardrail(**defaults)
+
+
+def test_valid_guardrail_passes_validation():
+    validate_guardrail(_guardrail())  # must not raise
+
+
+def test_invalid_stage_raises():
+    with pytest.raises(InvalidGuardrailError):
+        validate_guardrail(_guardrail(stage="request"))
+
+
+def test_invalid_action_raises():
+    with pytest.raises(InvalidGuardrailError):
+        validate_guardrail(_guardrail(action="DENY"))
+
+
+def test_out_of_range_threshold_raises():
+    with pytest.raises(InvalidGuardrailError):
+        validate_guardrail(_guardrail(match_threshold=3.0))
+
+
+def test_zero_examples_raises():
+    with pytest.raises(InvalidGuardrailError):
+        validate_guardrail(_guardrail(examples=[]))
