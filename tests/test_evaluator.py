@@ -63,3 +63,23 @@ def test_primary_match_tie_break_by_margin_then_id():
     b = _match(rule_id="rule-a", category="cat-b", action="BLOCK", distance=0.1, threshold=0.5)
     decision = decide([a, b])
     assert decision.primary_match.rule_id == "rule-a"
+
+
+def test_category_collapse_never_discards_a_higher_priority_action():
+    # Same category, different actions: a BLOCK match must survive category
+    # collapse even if a same-category FLAG match has a smaller distance —
+    # picking the category's representative by raw distance alone would
+    # silently drop the BLOCK signal before action-priority is ever applied.
+    block_match = _match(rule_id="rule-block", category="shared-cat", action="BLOCK", distance=0.4, threshold=0.5)
+    flag_match = _match(rule_id="rule-flag", category="shared-cat", action="FLAG", distance=0.1, threshold=0.5)
+    decision = decide([block_match, flag_match])
+    assert decision.action == "BLOCK"
+
+
+def test_category_collapse_is_order_independent_on_exact_distance_ties():
+    # Same category, same distance, different actions — result must not
+    # depend on which order the matches are passed in.
+    block_match = _match(rule_id="rule-block", category="shared-cat", action="BLOCK", distance=0.3, threshold=0.5)
+    flag_match = _match(rule_id="rule-flag", category="shared-cat", action="FLAG", distance=0.3, threshold=0.5)
+    assert decide([block_match, flag_match]).action == "BLOCK"
+    assert decide([flag_match, block_match]).action == "BLOCK"
