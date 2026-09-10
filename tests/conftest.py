@@ -13,7 +13,7 @@ def _redis_stack_available(redis_url: str) -> bool:
         return False
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def redis_url() -> str:
     url = os.environ.get("REDIS_URL", "redis://localhost:6379")
     if not _redis_stack_available(url):
