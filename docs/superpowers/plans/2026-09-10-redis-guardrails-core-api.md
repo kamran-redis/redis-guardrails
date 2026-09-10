@@ -516,6 +516,28 @@ def test_exceeding_max_chunks_raises():
     text = "word " * 1000
     with pytest.raises(IncompleteCoverageError):
         chunk_text(text, source="input", max_chars=20, overlap_chars=2, max_chunks=3)
+
+
+def test_paragraph_boundary_does_not_cause_degenerate_creeping_chunks():
+    # A short boundary-less run followed by a long word-boundary-rich run,
+    # under default chunking parameters. If the boundary search anchors on
+    # `start` alone instead of the furthest point already covered, the
+    # single paragraph boundary keeps winning as "nearest" on every
+    # iteration while `start` only creeps forward by 1 each time, burning
+    # through max_chunks on dozens of near-empty, fully-redundant chunks.
+    text = "X" * 500 + "\n\n" + ("word " * 2000)
+    chunks = chunk_text(text, source="input")
+
+    assert len(chunks) < 20  # genuine progress: ~700 new chars covered per chunk after the first
+
+    ends = [c.end_character for c in chunks]
+    assert ends == sorted(set(ends)), "a chunk made zero forward progress (duplicate/non-increasing end)"
+
+    covered = [False] * len(text)
+    for c in chunks:
+        for i in range(c.start_character, c.end_character):
+            covered[i] = True
+    assert all(covered)
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -564,6 +586,7 @@ def chunk_text(
     boundaries = _find_boundaries(text)
     chunks: list[Chunk] = []
     start = 0
+    covered_until = 0  # max end_character reached by any chunk emitted so far
     index = 0
     while start < len(text):
         if index >= max_chunks:
@@ -574,7 +597,17 @@ def chunk_text(
 
         end = min(start + budget, len(text))
         if end < len(text):
-            boundary = _nearest_boundary(boundaries, start, end)
+            # Search from max(start, covered_until), not just start: if we
+            # search from `start` alone, a boundary already consumed by an
+            # earlier chunk (within the overlap region) keeps winning as
+            # "nearest" on every subsequent iteration, while `start` only
+            # creeps forward by 1 each time (since end-overlap_chars stays
+            # below the already-covered point) — producing dozens of
+            # near-empty, redundant chunks that make zero forward progress
+            # until max_chunks is exhausted. Anchoring the search past
+            # covered_until forces each new chunk to end further into
+            # genuinely new territory.
+            boundary = _nearest_boundary(boundaries, max(start, covered_until), end)
             if boundary is None:
                 raise IncompleteCoverageError(
                     "found a span with no paragraph, sentence, or word boundary "
@@ -593,6 +626,7 @@ def chunk_text(
                 evaluated_text=prefix + chunk_slice,
             )
         )
+        covered_until = max(covered_until, end)
 
         if end >= len(text):
             break
@@ -610,9 +644,9 @@ def _find_boundaries(text: str) -> dict[str, list[int]]:
     return {"paragraph": paragraph, "sentence": sentence, "word": word}
 
 
-def _nearest_boundary(boundaries: dict[str, list[int]], start: int, end: int) -> int | None:
+def _nearest_boundary(boundaries: dict[str, list[int]], lower: int, end: int) -> int | None:
     for kind in ("paragraph", "sentence", "word"):
-        candidates = [b for b in boundaries[kind] if start < b <= end]
+        candidates = [b for b in boundaries[kind] if lower < b <= end]
         if candidates:
             return max(candidates)
     return None
@@ -621,7 +655,7 @@ def _nearest_boundary(boundaries: dict[str, list[int]], start: int, end: int) ->
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `pytest tests/test_chunking.py -v`
-Expected: all 7 tests PASS.
+Expected: all 8 tests PASS.
 
 - [ ] **Step 5: Commit**
 
