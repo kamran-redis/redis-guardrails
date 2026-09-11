@@ -110,3 +110,126 @@ def test_evaluate_prompt_output_passes_request_text_through(service, store):
     ]
     result = evaluate_prompt_output(service, "it is obvious", request_text="what is my balance?")
     assert result.action == "FLAG"
+
+
+from redis_guardrails.cli.core import (
+    CaseResult,
+    PerformanceSummary,
+    classify,
+    run_benchmark,
+    summarize_performance,
+)
+from redis_guardrails.models import EvaluationResult, Match, PerformanceInfo
+
+
+def _eval_result(**overrides) -> EvaluationResult:
+    defaults = dict(
+        evaluation_id="eval-1", stage="input", status="COMPLETED", action="BLOCK",
+        primary_match=None, matches=None, chunks=None,
+        performance=PerformanceInfo(embedding_ms=1.0, search_ms=2.0, total_ms=3.0),
+    )
+    defaults.update(overrides)
+    return EvaluationResult(**defaults)
+
+
+def _case_result(**overrides) -> CaseResult:
+    defaults = dict(
+        case_id="c-1", stage="input", category="cat", expected_action="BLOCK", result=_eval_result()
+    )
+    defaults.update(overrides)
+    return CaseResult(**defaults)
+
+
+def test_classify_pass():
+    case = _case_result(expected_action="BLOCK", result=_eval_result(action="BLOCK"))
+    assert classify(case) == "PASS"
+
+
+def test_classify_false_positive():
+    case = _case_result(expected_action="ALLOW", result=_eval_result(action="BLOCK"))
+    assert classify(case) == "FALSE_POSITIVE"
+
+
+def test_classify_false_negative():
+    case = _case_result(expected_action="BLOCK", result=_eval_result(action="ALLOW"))
+    assert classify(case) == "FALSE_NEGATIVE"
+
+
+def test_classify_wrong_severity():
+    case = _case_result(expected_action="BLOCK", result=_eval_result(action="FLAG"))
+    assert classify(case) == "WRONG_SEVERITY"
+
+
+def test_classify_indeterminate():
+    case = _case_result(result=_eval_result(status="INDETERMINATE", action=None))
+    assert classify(case) == "INDETERMINATE"
+
+
+def test_summarize_performance_averages_and_skips_none():
+    cases = [
+        _case_result(
+            result=_eval_result(
+                performance=PerformanceInfo(embedding_ms=2.0, search_ms=4.0, total_ms=10.0)
+            )
+        ),
+        _case_result(
+            result=_eval_result(
+                status="INDETERMINATE", action=None,
+                performance=PerformanceInfo(embedding_ms=None, search_ms=None, total_ms=20.0),
+            )
+        ),
+    ]
+    summary = summarize_performance(cases)
+    assert summary.count == 2
+    assert summary.avg_embedding_ms == 2.0
+    assert summary.avg_search_ms == 4.0
+    assert summary.avg_total_ms == 15.0
+    assert summary.indeterminate_count == 1
+
+
+def test_summarize_performance_all_indeterminate_gives_none_embedding_and_search():
+    cases = [
+        _case_result(
+            result=_eval_result(
+                status="INDETERMINATE", action=None,
+                performance=PerformanceInfo(embedding_ms=None, search_ms=None, total_ms=5.0),
+            )
+        ),
+    ]
+    summary = summarize_performance(cases)
+    assert summary.avg_embedding_ms is None
+    assert summary.avg_search_ms is None
+    assert summary.avg_total_ms == 5.0
+
+
+def test_summarize_performance_p95():
+    cases = [
+        _case_result(
+            result=_eval_result(performance=PerformanceInfo(embedding_ms=1.0, search_ms=1.0, total_ms=float(v)))
+        )
+        for v in [10, 20, 30, 40, 50]
+    ]
+    summary = summarize_performance(cases)
+    assert summary.p95_total_ms == 50.0
+
+
+def test_run_benchmark_evaluates_input_and_output_cases(tmp_path):
+    from tests.fakes import FakeStore
+
+    store = FakeStore()
+    service = GuardrailService(store)
+    store.matches_by_text["bad text"] = [
+        Match(rule_id="g-1", category="cat", action="BLOCK", distance=0.1, threshold=0.5, chunk_id="input-0", evaluated_text="bad text")
+    ]
+
+    path = _write_json(tmp_path, "testdata.json", [
+        {"id": "case-1", "stage": "input", "input": "bad text", "category": "cat", "action": "BLOCK"},
+        {"id": "case-2", "stage": "output", "input": "req", "output": "resp", "category": "cat", "action": "ALLOW"},
+    ])
+
+    results = run_benchmark(service, path)
+    assert len(results) == 2
+    assert results[0].case_id == "case-1"
+    assert results[0].result.action == "BLOCK"
+    assert results[1].case_id == "case-2"
+    assert results[1].result.action == "ALLOW"
