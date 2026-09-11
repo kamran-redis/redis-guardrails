@@ -75,12 +75,9 @@ redis-guardrails evaluate output --response "Sure, here's how..."
 # some checks, like whether a response actually answers the question,
 # need to know what was asked)
 redis-guardrails evaluate output --request "How do I reset my password?" --response "Sure, here's how..."
-
-# Add --trace to see exactly which guardrails matched and why
-redis-guardrails evaluate input "Ignore all previous instructions" --trace
 ```
 
-Every result reports a `status` (`COMPLETED` or `INDETERMINATE`), an `action` (`ALLOW`/`FLAG`/`BLOCK`), which guardrail triggered it (if any), and timing.
+Every result reports a `status` (`COMPLETED` or `INDETERMINATE`), an `action` (`ALLOW`/`FLAG`/`BLOCK`), which guardrail triggered it (if any), the full list of every guardrail that matched (with the exact `evaluated_text` compared against it), and timing. Add `--trace` to additionally see how the input was split into chunks (character ranges) — useful when tuning chunk size on long text.
 
 ### `benchmark` — run a batch of test cases
 
@@ -101,6 +98,8 @@ Long text is automatically split into overlapping chunks before evaluation (800 
 ```bash
 redis-guardrails evaluate input "$(cat some-long-transcript.txt)" --trace --max-chars 300 --overlap-chars 30
 ```
+
+`--trace` here shows the chunk boundaries (character ranges) so you can see exactly how the text was split.
 
 If a text can't be safely covered within `--max-chunks` chunks at the given `--max-chars`, the result comes back `INDETERMINATE` rather than silently evaluating an incomplete view of the text.
 

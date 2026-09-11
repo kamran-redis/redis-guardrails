@@ -95,11 +95,11 @@ def test_evaluate_prompt_input_delegates_to_service(service, store):
     assert result.action == "BLOCK"
 
 
-def test_evaluate_prompt_input_trace_flag_populates_matches(service, store):
+def test_evaluate_prompt_input_always_populates_matches(service, store):
     store.matches_by_text["hello"] = [
         Match(rule_id="g-1", category="cat", action="BLOCK", distance=0.1, threshold=0.5, chunk_id="input-0", evaluated_text="hello")
     ]
-    result = evaluate_prompt_input(service, "hello", trace=True)
+    result = evaluate_prompt_input(service, "hello")
     assert result.matches is not None
 
 

@@ -163,7 +163,7 @@ def evaluate_input_command(
     """Evaluate a single input-stage prompt."""
     service = build_service(redis_url=redis_url, model=model, overwrite=False)
     result = evaluate_prompt_input(
-        service, text, trace=trace,
+        service, text,
         max_chars=max_chars, overlap_chars=overlap_chars, max_chunks=max_chunks,
     )
     click.echo(format_evaluation_result(result, trace=trace))
@@ -192,7 +192,7 @@ def evaluate_output_command(
     """Evaluate a single output-stage (model response) prompt."""
     service = build_service(redis_url=redis_url, model=model, overwrite=False)
     result = evaluate_prompt_output(
-        service, response_text, request_text=request_text, trace=trace,
+        service, response_text, request_text=request_text,
         max_chars=max_chars, overlap_chars=overlap_chars, max_chunks=max_chunks,
     )
     click.echo(format_evaluation_result(result, trace=trace))

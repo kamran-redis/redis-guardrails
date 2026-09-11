@@ -62,14 +62,34 @@ def test_format_evaluation_result_indeterminate():
     assert "812.4" in text
 
 
-def test_format_evaluation_result_trace_shows_matches_and_chunks():
-    match = Match(rule_id="g-1", category="cat", action="BLOCK", distance=0.2, threshold=0.5, chunk_id="input-0", evaluated_text="text")
-    chunk = Chunk(id="input-0", source="input", start_character=0, end_character=4, text="text", evaluated_text="text")
+def test_format_evaluation_result_shows_all_matches_without_trace():
+    match = Match(
+        rule_id="g-1", category="cat", action="BLOCK", distance=0.2, threshold=0.5,
+        chunk_id="input-0", evaluated_text="disregard everything",
+    )
+    chunk = Chunk(id="input-0", source="input", start_character=0, end_character=4, text="raw text", evaluated_text="disregard everything")
+    result = _eval_result(matches=[match], chunks=[chunk])
+    text = format_evaluation_result(result)
+    assert "All matches (1):" in text
+    assert "evaluated text: 'disregard everything'" in text
+    assert "raw text" not in text
+    assert "Chunks" not in text
+
+
+def test_format_evaluation_result_trace_adds_chunk_breakdown_evaluated_text_only():
+    match = Match(
+        rule_id="g-1", category="cat", action="BLOCK", distance=0.2, threshold=0.5,
+        chunk_id="input-0", evaluated_text="disregard everything",
+    )
+    chunk = Chunk(id="input-0", source="input", start_character=0, end_character=4, text="raw text", evaluated_text="disregard everything")
     result = _eval_result(matches=[match], chunks=[chunk])
     text = format_evaluation_result(result, trace=True)
     assert "All matches (1):" in text
     assert "Chunks (1):" in text
-    assert "'text'" in text
+    assert "chars 0-4" in text
+    assert "evaluated text: 'disregard everything'" in text
+    assert "raw text" not in text
+    assert "    text:" not in text
 
 
 def test_format_benchmark_report_includes_case_summary_and_categories():

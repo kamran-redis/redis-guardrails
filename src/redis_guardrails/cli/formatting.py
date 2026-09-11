@@ -90,7 +90,7 @@ def format_evaluation_result(result: EvaluationResult, trace: bool = False) -> s
     else:
         lines.append("Primary match: none (no matching guardrail)")
 
-    if trace and result.matches is not None:
+    if result.matches is not None:
         lines.append("")
         lines.append(f"All matches ({len(result.matches)}):")
         for m in result.matches:
@@ -98,13 +98,13 @@ def format_evaluation_result(result: EvaluationResult, trace: bool = False) -> s
                 f"  {m.rule_id:<30} {m.category:<20} {m.action:<5} "
                 f"distance={m.distance:.2f} threshold={m.threshold:.2f}  chunk={m.chunk_id}"
             )
+            lines.append(f"    evaluated text: {m.evaluated_text!r}")
 
     if trace and result.chunks is not None:
         lines.append("")
         lines.append(f"Chunks ({len(result.chunks)}):")
         for c in result.chunks:
             lines.append(f"  [{c.id}] chars {c.start_character}-{c.end_character}")
-            lines.append(f"    text:           {c.text!r}")
             lines.append(f"    evaluated text: {c.evaluated_text!r}")
 
     lines.append("")

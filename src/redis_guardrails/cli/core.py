@@ -70,14 +70,13 @@ def load_guardrails_from_file(service: GuardrailService, path: Path) -> LoadRepo
 def evaluate_prompt_input(
     service: GuardrailService,
     text: str,
-    trace: bool = False,
     max_chars: int | None = None,
     overlap_chars: int | None = None,
     max_chunks: int | None = None,
 ) -> EvaluationResult:
     return service.evaluate_input(
         text,
-        include_trace=trace,
+        include_trace=True,
         max_chars=max_chars,
         overlap_chars=overlap_chars,
         max_chunks=max_chunks,
@@ -88,7 +87,6 @@ def evaluate_prompt_output(
     service: GuardrailService,
     response_text: str,
     request_text: str | None = None,
-    trace: bool = False,
     max_chars: int | None = None,
     overlap_chars: int | None = None,
     max_chunks: int | None = None,
@@ -96,7 +94,7 @@ def evaluate_prompt_output(
     return service.evaluate_output(
         response_text=response_text,
         request_text=request_text,
-        include_trace=trace,
+        include_trace=True,
         max_chars=max_chars,
         overlap_chars=overlap_chars,
         max_chunks=max_chunks,
