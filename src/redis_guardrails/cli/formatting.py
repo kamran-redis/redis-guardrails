@@ -23,8 +23,9 @@ def format_benchmark_report(cases: list[CaseResult], performance: PerformanceSum
     lines.append("-" * len(header))
     for case in cases:
         actual = case.result.action if case.result.action is not None else "n/a"
+        category_display = case.category if case.category is not None else "n/a"
         lines.append(
-            f"{case.case_id:<32} {case.stage:<7} {case.category:<21} "
+            f"{case.case_id:<32} {case.stage:<7} {category_display:<21} "
             f"{case.expected_action:<9} {actual:<7} {classify(case)}"
         )
 
@@ -47,13 +48,13 @@ def format_benchmark_report(cases: list[CaseResult], performance: PerformanceSum
     lines.append(f"Wrong severity:  {wrong_severity:>4}")
     lines.append(f"Indeterminate:   {indeterminate:>4}")
 
-    categories = sorted({c.category for c in cases})
+    categories = sorted({c.category or "n/a" for c in cases})
     lines.append("")
     lines.append("Accuracy by category")
     lines.append("---------------------")
     lines.append(f"{'Category':<20} {'Total':>6} {'Passed':>7} {'Accuracy':>9}")
     for category in categories:
-        cat_cases = [c for c in cases if c.category == category]
+        cat_cases = [c for c in cases if (c.category or "n/a") == category]
         cat_passed = sum(1 for c in cat_cases if classify(c) == "PASS")
         cat_accuracy = (cat_passed / len(cat_cases) * 100) if cat_cases else 0.0
         lines.append(f"{category:<20} {len(cat_cases):>6} {cat_passed:>7} {cat_accuracy:>8.1f}%")

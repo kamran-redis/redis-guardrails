@@ -83,7 +83,7 @@ def evaluate_prompt_output(
 class CaseResult:
     case_id: str
     stage: Stage
-    category: str
+    category: str | None
     expected_action: Action
     result: EvaluationResult
 

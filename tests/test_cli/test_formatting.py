@@ -81,3 +81,15 @@ def test_format_benchmark_report_includes_case_summary_and_categories():
     assert "Total cases:" in text
     assert "cat" in text
     assert "Performance" in text
+
+
+def test_format_benchmark_report_handles_case_with_no_category():
+    # Seed testdata.json has "safe" cases with category: null (they don't
+    # belong to any guardrail category) -- the report must not crash on
+    # that, and should render a placeholder instead of the literal None.
+    case = CaseResult(case_id="c-1", stage="input", category=None, expected_action="ALLOW", result=_eval_result(action="ALLOW"))
+    performance = PerformanceSummary(count=1, avg_embedding_ms=1.0, avg_search_ms=2.0, avg_total_ms=3.0, p95_total_ms=3.0, indeterminate_count=0)
+    text = format_benchmark_report([case], performance)
+    assert "c-1" in text
+    assert "None" not in text
+    assert "n/a" in text
