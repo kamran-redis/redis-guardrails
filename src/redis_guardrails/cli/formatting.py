@@ -40,7 +40,7 @@ def format_benchmark_report(cases: list[CaseResult], performance: PerformanceSum
 
     lines.append("")
     lines.append("Summary")
-    lines.append("-------")
+    lines.append("-" * len("Summary"))
     lines.append(f"Total cases:     {total:>4}")
     lines.append(f"Passed:          {passed:>4}  ({accuracy:.1f}%)")
     lines.append(f"False positives: {false_positives:>4}")
@@ -51,7 +51,7 @@ def format_benchmark_report(cases: list[CaseResult], performance: PerformanceSum
     categories = sorted({c.category or "n/a" for c in cases})
     lines.append("")
     lines.append("Accuracy by category")
-    lines.append("---------------------")
+    lines.append("-" * len("Accuracy by category"))
     lines.append(f"{'Category':<20} {'Total':>6} {'Passed':>7} {'Accuracy':>9}")
     for category in categories:
         cat_cases = [c for c in cases if (c.category or "n/a") == category]

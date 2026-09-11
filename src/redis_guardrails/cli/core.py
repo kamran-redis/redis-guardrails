@@ -48,6 +48,11 @@ def load_guardrails_from_file(service: GuardrailService, path: Path) -> LoadRepo
     with open(path) as f:
         raw_guardrails = json.load(f)
 
+    if not isinstance(raw_guardrails, list):
+        raise ValueError(
+            f"expected a JSON list of guardrails in {path}, got {type(raw_guardrails).__name__}"
+        )
+
     added: list[str] = []
     errors: list[LoadItemError] = []
     for index, raw in enumerate(raw_guardrails):

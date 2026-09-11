@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import functools
 from pathlib import Path
 
 import click
+from redis.exceptions import RedisError
 
 from redis_guardrails.cli.core import (
     DEFAULT_MODEL,
@@ -20,13 +22,35 @@ from redis_guardrails.cli.formatting import (
     format_evaluation_result,
     format_load_report,
 )
+from redis_guardrails.errors import GuardrailError
 
 _redis_url_option = click.option(
-    "--redis-url", envvar="REDIS_URL", default=DEFAULT_REDIS_URL, show_default=True,
+    "--redis-url",
+    envvar="REDIS_URL",
+    default=DEFAULT_REDIS_URL,
+    show_default=True,
+    show_envvar=True,
+    help="Redis Stack connection URL.",
 )
 _model_option = click.option(
-    "--model", envvar="REDIS_GUARDRAILS_MODEL", default=DEFAULT_MODEL, show_default=True,
+    "--model",
+    envvar="REDIS_GUARDRAILS_MODEL",
+    default=DEFAULT_MODEL,
+    show_default=True,
+    show_envvar=True,
+    help="Embedding model name (passed to HFTextVectorizer).",
 )
+
+
+def _handle_errors(command):
+    @functools.wraps(command)
+    def wrapper(*args, **kwargs):
+        try:
+            return command(*args, **kwargs)
+        except (RedisError, RuntimeError, GuardrailError, KeyError, ValueError) as exc:
+            raise click.ClickException(str(exc)) from exc
+
+    return wrapper
 
 
 @click.group()
@@ -35,6 +59,7 @@ def cli():
 
 
 @cli.command("load")
+@_handle_errors
 @click.argument("path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @_redis_url_option
 @_model_option
@@ -43,7 +68,7 @@ def load_command(path: Path, redis_url: str, model: str, overwrite: bool):
     """Load guardrails from a JSON file into the store."""
     click.echo(f"Loading guardrails from {path} ...")
     service = build_service(redis_url=redis_url, model=model, overwrite=overwrite)
-    click.echo(f"Connected to {redis_url} (model: {model})\n")
+    click.echo(f"Using Redis at {redis_url} (model: {model})\n")
 
     report = load_guardrails_from_file(service, path)
     click.echo(format_load_report(report))
@@ -53,12 +78,15 @@ def load_command(path: Path, redis_url: str, model: str, overwrite: bool):
 
 
 @cli.command("benchmark")
+@_handle_errors
 @click.argument("path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @_redis_url_option
 @_model_option
 @click.option(
-    "--min-accuracy", type=float, default=None,
-    help="Exit non-zero if action accuracy falls below this fraction (0-1).",
+    "--min-accuracy",
+    type=click.FloatRange(0.0, 1.0),
+    default=None,
+    help="Exit non-zero if action accuracy falls below this fraction (0.0-1.0).",
 )
 def benchmark_command(path: Path, redis_url: str, model: str, min_accuracy: float | None):
     """Run a test-data file through the service and report pass/fail and performance."""
@@ -70,10 +98,11 @@ def benchmark_command(path: Path, redis_url: str, model: str, min_accuracy: floa
     performance = summarize_performance(cases)
     click.echo(format_benchmark_report(cases, performance))
 
-    if min_accuracy is not None and cases:
+    if min_accuracy is not None:
         passed = sum(1 for c in cases if classify(c) == "PASS")
-        accuracy = passed / len(cases)
+        accuracy = (passed / len(cases)) if cases else 0.0
         if accuracy < min_accuracy:
+            click.echo(f"\naccuracy {accuracy:.1%} is below the required {min_accuracy:.1%}")
             raise SystemExit(1)
 
 
@@ -83,6 +112,7 @@ def evaluate_group():
 
 
 @evaluate_group.command("input")
+@_handle_errors
 @click.argument("text")
 @_redis_url_option
 @_model_option
@@ -95,6 +125,7 @@ def evaluate_input_command(text: str, redis_url: str, model: str, trace: bool):
 
 
 @evaluate_group.command("output")
+@_handle_errors
 @click.option("--response", "response_text", required=True, help="The candidate model response to evaluate.")
 @click.option("--request", "request_text", default=None, help="The original user request, for dialogue context.")
 @_redis_url_option

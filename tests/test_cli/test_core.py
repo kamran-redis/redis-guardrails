@@ -5,12 +5,18 @@ import pytest
 
 from redis_guardrails import GuardrailService
 from redis_guardrails.cli.core import (
+    CaseResult,
+    PerformanceSummary,
     build_service,
+    classify,
     evaluate_prompt_input,
     evaluate_prompt_output,
     load_guardrails_from_file,
+    run_benchmark,
+    summarize_performance,
 )
 from redis_guardrails.errors import DuplicateGuardrailError
+from redis_guardrails.models import EvaluationResult, Match, PerformanceInfo
 from tests.fakes import FakeStore
 
 
@@ -82,8 +88,6 @@ def test_load_collects_malformed_record_as_type_error(service, tmp_path):
 
 
 def test_evaluate_prompt_input_delegates_to_service(service, store):
-    from redis_guardrails.models import Match
-
     store.matches_by_text["hello"] = [
         Match(rule_id="g-1", category="cat", action="BLOCK", distance=0.1, threshold=0.5, chunk_id="input-0", evaluated_text="hello")
     ]
@@ -92,8 +96,6 @@ def test_evaluate_prompt_input_delegates_to_service(service, store):
 
 
 def test_evaluate_prompt_input_trace_flag_populates_matches(service, store):
-    from redis_guardrails.models import Match
-
     store.matches_by_text["hello"] = [
         Match(rule_id="g-1", category="cat", action="BLOCK", distance=0.1, threshold=0.5, chunk_id="input-0", evaluated_text="hello")
     ]
@@ -102,24 +104,12 @@ def test_evaluate_prompt_input_trace_flag_populates_matches(service, store):
 
 
 def test_evaluate_prompt_output_passes_request_text_through(service, store):
-    from redis_guardrails.models import Match
-
     prefixed = "User: what is my balance?\nAssistant: it is obvious"
     store.matches_by_text[prefixed] = [
         Match(rule_id="g-1", category="cat", action="FLAG", distance=0.1, threshold=0.5, chunk_id="output-0", evaluated_text=prefixed)
     ]
     result = evaluate_prompt_output(service, "it is obvious", request_text="what is my balance?")
     assert result.action == "FLAG"
-
-
-from redis_guardrails.cli.core import (
-    CaseResult,
-    PerformanceSummary,
-    classify,
-    run_benchmark,
-    summarize_performance,
-)
-from redis_guardrails.models import EvaluationResult, Match, PerformanceInfo
 
 
 def _eval_result(**overrides) -> EvaluationResult:
@@ -214,8 +204,6 @@ def test_summarize_performance_p95():
 
 
 def test_run_benchmark_evaluates_input_and_output_cases(tmp_path):
-    from tests.fakes import FakeStore
-
     store = FakeStore()
     service = GuardrailService(store)
     store.matches_by_text["bad text"] = [
@@ -233,3 +221,19 @@ def test_run_benchmark_evaluates_input_and_output_cases(tmp_path):
     assert results[0].result.action == "BLOCK"
     assert results[1].case_id == "case-2"
     assert results[1].result.action == "ALLOW"
+
+
+def test_build_service_raises_runtime_error_when_sentence_transformers_missing(monkeypatch):
+    import builtins
+
+    real_import = builtins.__import__
+
+    def blocking_import(name, *args, **kwargs):
+        if name == "sentence_transformers" or name.startswith("sentence_transformers."):
+            raise ImportError("blocked for test")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", blocking_import)
+
+    with pytest.raises(RuntimeError, match="sentence-transformers"):
+        build_service()

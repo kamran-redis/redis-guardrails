@@ -13,7 +13,7 @@ embeddings = ["sentence-transformers"]
 cli = ["sentence-transformers"]
 
 [project.scripts]
-redis-guardrails = "redis_guardrails.cli:cli"
+redis-guardrails = "redis_guardrails.cli.commands:cli"
 
 [tool.pytest.ini_options]
 markers = [

@@ -8,8 +8,13 @@ from redis_guardrails.models import Match
 from tests.fakes import FakeStore
 
 
-def _patch_build_service(monkeypatch, service):
-    monkeypatch.setattr("redis_guardrails.cli.commands.build_service", lambda **kwargs: service)
+def _patch_build_service(monkeypatch, service, calls=None):
+    def fake_build_service(**kwargs):
+        if calls is not None:
+            calls.append(kwargs)
+        return service
+
+    monkeypatch.setattr("redis_guardrails.cli.commands.build_service", fake_build_service)
 
 
 def _write_json(tmp_path, name, data):
@@ -105,3 +110,111 @@ def test_evaluate_output_command_with_request_and_trace(monkeypatch):
     assert result.exit_code == 0
     assert "Action: FLAG" in result.output
     assert "All matches" in result.output
+
+
+def test_load_command_non_list_json_produces_clean_error(monkeypatch, tmp_path):
+    service = GuardrailService(FakeStore())
+    _patch_build_service(monkeypatch, service)
+
+    path = _write_json(tmp_path, "guardrails.json", {"id": "not-a-list"})
+
+    result = CliRunner().invoke(cli, ["load", str(path)])
+    assert result.exit_code == 1
+    assert result.exception is None or isinstance(result.exception, SystemExit)
+    assert "Error:" in result.output
+    assert "expected a JSON list" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_benchmark_command_min_accuracy_zero_cases_fails_gate(monkeypatch, tmp_path):
+    service = GuardrailService(FakeStore())
+    _patch_build_service(monkeypatch, service)
+
+    path = _write_json(tmp_path, "testdata.json", [])
+
+    result = CliRunner().invoke(cli, ["benchmark", str(path), "--min-accuracy", "0.5"])
+    assert result.exit_code == 1
+    assert "accuracy 0.0% is below the required 50.0%" in result.output
+
+
+def test_benchmark_command_min_accuracy_above_threshold_passes_silently(monkeypatch, tmp_path):
+    store = FakeStore()
+    store.matches_by_text["bad text"] = [
+        Match(rule_id="g-1", category="cat", action="BLOCK", distance=0.1, threshold=0.5, chunk_id="input-0", evaluated_text="bad text")
+    ]
+    service = GuardrailService(store)
+    _patch_build_service(monkeypatch, service)
+
+    path = _write_json(tmp_path, "testdata.json", [
+        {"id": "case-1", "stage": "input", "input": "bad text", "category": "cat", "action": "BLOCK"},
+    ])
+
+    result = CliRunner().invoke(cli, ["benchmark", str(path), "--min-accuracy", "0.5"])
+    assert result.exit_code == 0
+    assert "is below the required" not in result.output
+
+
+def test_benchmark_command_min_accuracy_below_threshold_prints_message(monkeypatch, tmp_path):
+    service = GuardrailService(FakeStore())  # nothing configured -> always ALLOW
+    _patch_build_service(monkeypatch, service)
+
+    path = _write_json(tmp_path, "testdata.json", [
+        {"id": "case-1", "stage": "input", "input": "anything", "category": "cat", "action": "BLOCK"},
+    ])
+
+    result = CliRunner().invoke(cli, ["benchmark", str(path), "--min-accuracy", "0.9"])
+    assert result.exit_code == 1
+    assert "accuracy 0.0% is below the required 90.0%" in result.output
+
+
+def test_benchmark_command_min_accuracy_out_of_range_rejected_by_click(monkeypatch, tmp_path):
+    service = GuardrailService(FakeStore())
+    _patch_build_service(monkeypatch, service)
+
+    path = _write_json(tmp_path, "testdata.json", [])
+
+    result = CliRunner().invoke(cli, ["benchmark", str(path), "--min-accuracy", "1.5"])
+    assert result.exit_code == 2
+    assert "Usage:" in result.output
+
+
+def test_load_command_passes_overwrite_flag_to_build_service(monkeypatch, tmp_path):
+    service = GuardrailService(FakeStore())
+    calls = []
+    _patch_build_service(monkeypatch, service, calls)
+    path = _write_json(tmp_path, "guardrails.json", [])
+    CliRunner().invoke(cli, ["load", str(path), "--overwrite"])
+    assert calls[-1]["overwrite"] is True
+
+
+def test_load_command_defaults_overwrite_to_false(monkeypatch, tmp_path):
+    service = GuardrailService(FakeStore())
+    calls = []
+    _patch_build_service(monkeypatch, service, calls)
+    path = _write_json(tmp_path, "guardrails.json", [])
+    CliRunner().invoke(cli, ["load", str(path)])
+    assert calls[-1]["overwrite"] is False
+
+
+def test_benchmark_command_never_passes_overwrite_true(monkeypatch, tmp_path):
+    service = GuardrailService(FakeStore())
+    calls = []
+    _patch_build_service(monkeypatch, service, calls)
+    path = _write_json(tmp_path, "testdata.json", [])
+    CliRunner().invoke(cli, ["benchmark", str(path)])
+    assert calls[-1]["overwrite"] is False
+
+
+def test_evaluate_input_command_never_passes_overwrite_true(monkeypatch):
+    service = GuardrailService(FakeStore())
+    calls = []
+    _patch_build_service(monkeypatch, service, calls)
+    CliRunner().invoke(cli, ["evaluate", "input", "hello"])
+    assert calls[-1]["overwrite"] is False
+
+
+def test_load_help_documents_env_vars():
+    result = CliRunner().invoke(cli, ["load", "--help"])
+    assert result.exit_code == 0
+    assert "REDIS_URL" in result.output
+    assert "REDIS_GUARDRAILS_MODEL" in result.output
