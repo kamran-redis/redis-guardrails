@@ -94,6 +94,16 @@ redis-guardrails benchmark data/testdata.json
 redis-guardrails benchmark data/testdata.json --min-accuracy 0.8
 ```
 
+### Changing chunk size
+
+Long text is automatically split into overlapping chunks before evaluation (800 characters per chunk by default, with 100 characters of overlap, capped at 50 chunks). `evaluate` and `benchmark` accept `--max-chars`, `--overlap-chars`, and `--max-chunks` to override these on a single run — useful for testing how a short trigger phrase behaves when diluted by a lot of surrounding text, or for tuning how aggressively long inputs get split:
+
+```bash
+redis-guardrails evaluate input "$(cat some-long-transcript.txt)" --trace --max-chars 300 --overlap-chars 30
+```
+
+If a text can't be safely covered within `--max-chunks` chunks at the given `--max-chars`, the result comes back `INDETERMINATE` rather than silently evaluating an incomplete view of the text.
+
 ### `load` — bulk-load guardrails
 
 ```bash

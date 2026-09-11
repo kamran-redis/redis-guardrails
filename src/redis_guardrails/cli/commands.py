@@ -40,6 +40,24 @@ _model_option = click.option(
     show_envvar=True,
     help="Embedding model name (passed to HFTextVectorizer).",
 )
+_max_chars_option = click.option(
+    "--max-chars",
+    type=int,
+    default=None,
+    help="Max characters per chunk before text is split (default: chunking.DEFAULT_MAX_CHARS, 800).",
+)
+_overlap_chars_option = click.option(
+    "--overlap-chars",
+    type=int,
+    default=None,
+    help="Characters of overlap between consecutive chunks (default: chunking.DEFAULT_OVERLAP_CHARS, 100).",
+)
+_max_chunks_option = click.option(
+    "--max-chunks",
+    type=int,
+    default=None,
+    help="Max number of chunks before evaluation gives up as INDETERMINATE (default: chunking.DEFAULT_MAX_CHUNKS, 50).",
+)
 
 
 def _handle_errors(command):
@@ -88,13 +106,26 @@ def load_command(path: Path, redis_url: str, model: str, overwrite: bool):
     default=None,
     help="Exit non-zero if action accuracy falls below this fraction (0.0-1.0).",
 )
-def benchmark_command(path: Path, redis_url: str, model: str, min_accuracy: float | None):
+@_max_chars_option
+@_overlap_chars_option
+@_max_chunks_option
+def benchmark_command(
+    path: Path,
+    redis_url: str,
+    model: str,
+    min_accuracy: float | None,
+    max_chars: int | None,
+    overlap_chars: int | None,
+    max_chunks: int | None,
+):
     """Run a test-data file through the service and report pass/fail and performance."""
     click.echo(f"Benchmark: {path}")
     service = build_service(redis_url=redis_url, model=model, overwrite=False)
     click.echo(f"Redis: {redis_url}   Model: {model}\n")
 
-    cases = run_benchmark(service, path)
+    cases = run_benchmark(
+        service, path, max_chars=max_chars, overlap_chars=overlap_chars, max_chunks=max_chunks
+    )
     performance = summarize_performance(cases)
     click.echo(format_benchmark_report(cases, performance))
 
@@ -117,10 +148,24 @@ def evaluate_group():
 @_redis_url_option
 @_model_option
 @click.option("--trace", is_flag=True, help="Show full match and chunk detail.")
-def evaluate_input_command(text: str, redis_url: str, model: str, trace: bool):
+@_max_chars_option
+@_overlap_chars_option
+@_max_chunks_option
+def evaluate_input_command(
+    text: str,
+    redis_url: str,
+    model: str,
+    trace: bool,
+    max_chars: int | None,
+    overlap_chars: int | None,
+    max_chunks: int | None,
+):
     """Evaluate a single input-stage prompt."""
     service = build_service(redis_url=redis_url, model=model, overwrite=False)
-    result = evaluate_prompt_input(service, text, trace=trace)
+    result = evaluate_prompt_input(
+        service, text, trace=trace,
+        max_chars=max_chars, overlap_chars=overlap_chars, max_chunks=max_chunks,
+    )
     click.echo(format_evaluation_result(result, trace=trace))
 
 
@@ -131,10 +176,23 @@ def evaluate_input_command(text: str, redis_url: str, model: str, trace: bool):
 @_redis_url_option
 @_model_option
 @click.option("--trace", is_flag=True, help="Show full match and chunk detail.")
+@_max_chars_option
+@_overlap_chars_option
+@_max_chunks_option
 def evaluate_output_command(
-    response_text: str, request_text: str | None, redis_url: str, model: str, trace: bool
+    response_text: str,
+    request_text: str | None,
+    redis_url: str,
+    model: str,
+    trace: bool,
+    max_chars: int | None,
+    overlap_chars: int | None,
+    max_chunks: int | None,
 ):
     """Evaluate a single output-stage (model response) prompt."""
     service = build_service(redis_url=redis_url, model=model, overwrite=False)
-    result = evaluate_prompt_output(service, response_text, request_text=request_text, trace=trace)
+    result = evaluate_prompt_output(
+        service, response_text, request_text=request_text, trace=trace,
+        max_chars=max_chars, overlap_chars=overlap_chars, max_chunks=max_chunks,
+    )
     click.echo(format_evaluation_result(result, trace=trace))

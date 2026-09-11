@@ -68,9 +68,20 @@ def load_guardrails_from_file(service: GuardrailService, path: Path) -> LoadRepo
 
 
 def evaluate_prompt_input(
-    service: GuardrailService, text: str, trace: bool = False
+    service: GuardrailService,
+    text: str,
+    trace: bool = False,
+    max_chars: int | None = None,
+    overlap_chars: int | None = None,
+    max_chunks: int | None = None,
 ) -> EvaluationResult:
-    return service.evaluate_input(text, include_trace=trace)
+    return service.evaluate_input(
+        text,
+        include_trace=trace,
+        max_chars=max_chars,
+        overlap_chars=overlap_chars,
+        max_chunks=max_chunks,
+    )
 
 
 def evaluate_prompt_output(
@@ -78,9 +89,17 @@ def evaluate_prompt_output(
     response_text: str,
     request_text: str | None = None,
     trace: bool = False,
+    max_chars: int | None = None,
+    overlap_chars: int | None = None,
+    max_chunks: int | None = None,
 ) -> EvaluationResult:
     return service.evaluate_output(
-        response_text=response_text, request_text=request_text, include_trace=trace
+        response_text=response_text,
+        request_text=request_text,
+        include_trace=trace,
+        max_chars=max_chars,
+        overlap_chars=overlap_chars,
+        max_chunks=max_chunks,
     )
 
 
@@ -93,17 +112,28 @@ class CaseResult:
     result: EvaluationResult
 
 
-def run_benchmark(service: GuardrailService, path: Path) -> list[CaseResult]:
+def run_benchmark(
+    service: GuardrailService,
+    path: Path,
+    max_chars: int | None = None,
+    overlap_chars: int | None = None,
+    max_chunks: int | None = None,
+) -> list[CaseResult]:
     with open(path) as f:
         cases = json.load(f)
+
+    chunk_overrides = dict(max_chars=max_chars, overlap_chars=overlap_chars, max_chunks=max_chunks)
 
     results: list[CaseResult] = []
     for case in cases:
         if case["stage"] == "input":
-            result = service.evaluate_input(case["input"], include_trace=True)
+            result = service.evaluate_input(case["input"], include_trace=True, **chunk_overrides)
         else:
             result = service.evaluate_output(
-                response_text=case["output"], request_text=case.get("input"), include_trace=True
+                response_text=case["output"],
+                request_text=case.get("input"),
+                include_trace=True,
+                **chunk_overrides,
             )
         results.append(
             CaseResult(

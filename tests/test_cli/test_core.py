@@ -223,6 +223,29 @@ def test_run_benchmark_evaluates_input_and_output_cases(tmp_path):
     assert results[1].result.action == "ALLOW"
 
 
+def test_evaluate_prompt_input_passes_chunking_overrides_through(service, store):
+    text = "word " * 60
+    evaluate_prompt_input(service, text, max_chars=100, overlap_chars=10)
+    assert len(store.embedded_texts) > 1
+
+
+def test_evaluate_prompt_output_passes_chunking_overrides_through(service, store):
+    text = "word " * 60
+    evaluate_prompt_output(service, text, max_chars=100, overlap_chars=10)
+    assert len(store.embedded_texts) > 1
+
+
+def test_run_benchmark_passes_chunking_overrides_through(tmp_path):
+    store = FakeStore()
+    service = GuardrailService(store)
+    path = _write_json(tmp_path, "testdata.json", [
+        {"id": "case-1", "stage": "input", "input": "word " * 60, "category": "cat", "action": "ALLOW"},
+    ])
+
+    run_benchmark(service, path, max_chars=100, overlap_chars=10)
+    assert len(store.embedded_texts) > 1
+
+
 def test_build_service_raises_runtime_error_when_sentence_transformers_missing(monkeypatch):
     import builtins
 

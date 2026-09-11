@@ -46,28 +46,71 @@ class GuardrailService:
     def list_guardrails(self, stage: Stage | None = None) -> list[Guardrail]:
         return self._store.list(stage)
 
-    def evaluate_input(self, text: str, include_trace: bool = False) -> EvaluationResult:
-        return self._evaluate(stage="input", text=text, prefix="", include_trace=include_trace)
+    def evaluate_input(
+        self,
+        text: str,
+        include_trace: bool = False,
+        max_chars: int | None = None,
+        overlap_chars: int | None = None,
+        max_chunks: int | None = None,
+    ) -> EvaluationResult:
+        return self._evaluate(
+            stage="input",
+            text=text,
+            prefix="",
+            include_trace=include_trace,
+            max_chars=max_chars,
+            overlap_chars=overlap_chars,
+            max_chunks=max_chunks,
+        )
 
     def evaluate_output(
         self,
         response_text: str,
         request_text: str | None = None,
         include_trace: bool = False,
+        max_chars: int | None = None,
+        overlap_chars: int | None = None,
+        max_chunks: int | None = None,
     ) -> EvaluationResult:
         prefix = f"User: {request_text}\nAssistant: " if request_text is not None else ""
         return self._evaluate(
-            stage="output", text=response_text, prefix=prefix, include_trace=include_trace
+            stage="output",
+            text=response_text,
+            prefix=prefix,
+            include_trace=include_trace,
+            max_chars=max_chars,
+            overlap_chars=overlap_chars,
+            max_chunks=max_chunks,
         )
 
     def _evaluate(
-        self, *, stage: Stage, text: str, prefix: str, include_trace: bool
+        self,
+        *,
+        stage: Stage,
+        text: str,
+        prefix: str,
+        include_trace: bool,
+        max_chars: int | None = None,
+        overlap_chars: int | None = None,
+        max_chunks: int | None = None,
     ) -> EvaluationResult:
         evaluation_id = f"eval-{uuid.uuid4()}"
         start = time.perf_counter()
 
+        # Only override chunk_text's own defaults for parameters the caller
+        # actually specified — passing None through would mean "chunk into
+        # windows of size None", not "use the default".
+        chunk_kwargs = {}
+        if max_chars is not None:
+            chunk_kwargs["max_chars"] = max_chars
+        if overlap_chars is not None:
+            chunk_kwargs["overlap_chars"] = overlap_chars
+        if max_chunks is not None:
+            chunk_kwargs["max_chunks"] = max_chunks
+
         try:
-            chunks = chunk_text(text, source=stage, prefix=prefix)
+            chunks = chunk_text(text, source=stage, prefix=prefix, **chunk_kwargs)
 
             embedding_start = time.perf_counter()
             vectors = self._store.embed([c.evaluated_text for c in chunks])

@@ -218,3 +218,39 @@ def test_load_help_documents_env_vars():
     assert result.exit_code == 0
     assert "REDIS_URL" in result.output
     assert "REDIS_GUARDRAILS_MODEL" in result.output
+
+
+def test_evaluate_input_command_max_chars_option_reaches_store(monkeypatch):
+    store = FakeStore()
+    service = GuardrailService(store)
+    _patch_build_service(monkeypatch, service)
+
+    text = "word " * 60
+    result = CliRunner().invoke(
+        cli, ["evaluate", "input", text, "--max-chars", "100", "--overlap-chars", "10"]
+    )
+    assert result.exit_code == 0
+    assert len(store.embedded_texts) > 1
+
+
+def test_benchmark_command_max_chars_option_reaches_store(monkeypatch, tmp_path):
+    store = FakeStore()
+    service = GuardrailService(store)
+    _patch_build_service(monkeypatch, service)
+
+    path = _write_json(tmp_path, "testdata.json", [
+        {"id": "case-1", "stage": "input", "input": "word " * 60, "category": "cat", "action": "ALLOW"},
+    ])
+    result = CliRunner().invoke(
+        cli, ["benchmark", str(path), "--max-chars", "100", "--overlap-chars", "10"]
+    )
+    assert result.exit_code == 0
+    assert len(store.embedded_texts) > 1
+
+
+def test_evaluate_input_help_documents_chunking_options():
+    result = CliRunner().invoke(cli, ["evaluate", "input", "--help"])
+    assert result.exit_code == 0
+    assert "--max-chars" in result.output
+    assert "--overlap-chars" in result.output
+    assert "--max-chunks" in result.output

@@ -117,3 +117,36 @@ def test_search_failure_returns_indeterminate(service, store):
     result = service.evaluate_input("anything")
     assert result.status == "INDETERMINATE"
     assert result.action is None
+
+
+def test_evaluate_input_default_chunking_produces_one_chunk_for_short_text(service, store):
+    service.evaluate_input("word " * 30)  # well under the 800-char default
+    assert len(store.embedded_texts) == 1
+
+
+def test_evaluate_input_max_chars_override_forces_more_chunks(service, store):
+    text = "word " * 60  # ~300 chars
+    service.evaluate_input(text, max_chars=100, overlap_chars=10)
+    assert len(store.embedded_texts) > 1
+
+
+def test_evaluate_output_max_chars_override_forces_more_chunks(service, store):
+    text = "word " * 60
+    service.evaluate_output(text, max_chars=100, overlap_chars=10)
+    assert len(store.embedded_texts) > 1
+
+
+def test_evaluate_input_overlap_chars_override_changes_chunk_count(service, store):
+    text = "word " * 40
+    small_overlap = service.evaluate_input(text, max_chars=20, overlap_chars=2, include_trace=True)
+    store.embedded_texts.clear()
+    large_overlap = service.evaluate_input(text, max_chars=20, overlap_chars=15, include_trace=True)
+    # More overlap re-covers more of the same ground per step, so it takes
+    # more chunks to cover the same text.
+    assert len(large_overlap.chunks) > len(small_overlap.chunks)
+
+
+def test_evaluate_input_max_chunks_override_returns_indeterminate_when_too_low(service, store):
+    text = "word " * 100
+    result = service.evaluate_input(text, max_chars=20, max_chunks=2)
+    assert result.status == "INDETERMINATE"
