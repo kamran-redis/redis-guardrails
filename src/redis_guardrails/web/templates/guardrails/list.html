@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Guardrails{% endblock %}
+{% block content %}
+<h1>Guardrails</h1>
+
+{% if flash %}
+  {% set flash_action, flash_id = flash.split(":", 1) %}
+  <div class="flash-banner">
+    {% if flash_action == "deleted" %}Deleted guardrail "{{ flash_id }}".{% else %}Guardrail "{{ flash_id }}" was already gone.{% endif %}
+  </div>
+{% endif %}
+
+<p>
+  <a href="/guardrails">All</a> |
+  <a href="/guardrails?stage=input">Input</a> |
+  <a href="/guardrails?stage=output">Output</a> |
+  <a href="/guardrails/new">+ New guardrail</a>
+</p>
+
+<table>
+  <thead>
+    <tr><th>ID</th><th>Stage</th><th>Category</th><th>Action</th><th>Threshold</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for g in guardrails %}
+    <tr>
+      <td><a href="/guardrails/{{ g.id }}">{{ g.id }}</a></td>
+      <td>{{ g.stage }}</td>
+      <td>{{ g.category }}</td>
+      <td><span class="badge {{ g.action }}">{{ g.action }}</span></td>
+      <td>{{ g.match_threshold }}</td>
+      <td>
+        <a href="/guardrails/{{ g.id }}/edit">Edit</a>
+        <form method="post" action="/guardrails/{{ g.id }}/delete" style="display:inline"
+              onsubmit="return confirm('Delete guardrail {{ g.id }}?');">
+          <button type="submit">Delete</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

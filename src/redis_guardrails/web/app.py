@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from redis_guardrails.cli.core import DEFAULT_MODEL, DEFAULT_REDIS_URL, build_service
 from redis_guardrails.web.errors import register_exception_handlers
-from redis_guardrails.web.routes import home
+from redis_guardrails.web.routes import guardrails, home
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -22,6 +22,7 @@ def _build_app() -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     register_exception_handlers(app)
     app.include_router(home.router)
+    app.include_router(guardrails.router, prefix="/guardrails")
     return app
 
 
