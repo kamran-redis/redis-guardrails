@@ -210,8 +210,10 @@ router = APIRouter()
 
 @router.get("/")
 def home(request: Request):
-    return templates.TemplateResponse("home.html", {"request": request})
+    return templates.TemplateResponse(request, "home.html", {})
 ```
+
+**Note on the installed Starlette version:** the `web` extra resolves a Starlette version whose `Jinja2Templates.TemplateResponse` signature is `(request, name, context=None, status_code=200, ...)` — `request` is a required first positional argument, and the context dict no longer carries a `"request"` key. Every `TemplateResponse` call in this plan (Tasks 1-5) uses this new-style call; do not use the older `TemplateResponse(name, {"request": request, ...})` form, which raises `TypeError: cannot use 'tuple' as a dict key` against this Starlette version.
 
 Create `src/redis_guardrails/web/app.py`:
 
@@ -431,27 +433,32 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(GuardrailNotFoundError)
     async def guardrail_not_found_handler(request: Request, exc: GuardrailNotFoundError):
         return templates.TemplateResponse(
+            request,
             "error.html",
-            {"request": request, "status_code": 404, "message": f"Guardrail '{exc.guardrail_id}' not found."},
+            {"status_code": 404, "message": f"Guardrail '{exc.guardrail_id}' not found."},
             status_code=404,
         )
 
     @app.exception_handler(RedisError)
     async def redis_error_handler(request: Request, exc: RedisError):
         return templates.TemplateResponse(
+            request,
             "error.html",
-            {"request": request, "status_code": 502, "message": "The guardrails store is unreachable."},
+            {"status_code": 502, "message": "The guardrails store is unreachable."},
             status_code=502,
         )
 
     @app.exception_handler(RequestValidationError)
     async def validation_error_handler(request: Request, exc: RequestValidationError):
         return templates.TemplateResponse(
+            request,
             "error.html",
-            {"request": request, "status_code": 422, "message": "The submitted form was invalid."},
+            {"status_code": 422, "message": "The submitted form was invalid."},
             status_code=422,
         )
 ```
+
+**Note on the installed Starlette version:** `Jinja2Templates.TemplateResponse` in the resolved Starlette version is `(request, name, context=None, status_code=200, ...)` — `request` is a required first positional argument, not a `"request"` key inside the context dict. Every `TemplateResponse` call in this task uses this new-style call.
 
 Create `src/redis_guardrails/web/templates/error.html`:
 
@@ -654,16 +661,18 @@ def list_guardrails(
 ):
     guardrails = service.list_guardrails(stage=stage)
     return templates.TemplateResponse(
+        request,
         "guardrails/list.html",
-        {"request": request, "guardrails": guardrails, "stage": stage, "flash": flash},
+        {"guardrails": guardrails, "stage": stage, "flash": flash},
     )
 
 
 @router.get("/new")
 def new_guardrail_form(request: Request):
     return templates.TemplateResponse(
+        request,
         "guardrails/form.html",
-        {"request": request, "mode": "create", "guardrail": None, "error": None},
+        {"mode": "create", "guardrail": None, "error": None},
     )
 
 
@@ -687,8 +696,9 @@ def create_guardrail(
         service.add_guardrail(guardrail)
     except (InvalidGuardrailError, DuplicateGuardrailError) as exc:
         return templates.TemplateResponse(
+            request,
             "guardrails/form.html",
-            {"request": request, "mode": "create", "guardrail": guardrail, "error": str(exc)},
+            {"mode": "create", "guardrail": guardrail, "error": str(exc)},
             status_code=400,
         )
     return RedirectResponse(url=f"/guardrails/{guardrail.id}", status_code=303)
@@ -702,7 +712,7 @@ def guardrail_detail(
 ):
     guardrail = service.get_guardrail(guardrail_id)
     return templates.TemplateResponse(
-        "guardrails/detail.html", {"request": request, "guardrail": guardrail}
+        request, "guardrails/detail.html", {"guardrail": guardrail}
     )
 
 
@@ -714,8 +724,9 @@ def edit_guardrail_form(
 ):
     guardrail = service.get_guardrail(guardrail_id)
     return templates.TemplateResponse(
+        request,
         "guardrails/form.html",
-        {"request": request, "mode": "edit", "guardrail": guardrail, "error": None},
+        {"mode": "edit", "guardrail": guardrail, "error": None},
     )
 
 
@@ -741,8 +752,9 @@ def update_guardrail_route(
         service.update_guardrail(guardrail)
     except InvalidGuardrailError as exc:
         return templates.TemplateResponse(
+            request,
             "guardrails/form.html",
-            {"request": request, "mode": "edit", "guardrail": guardrail, "error": str(exc)},
+            {"mode": "edit", "guardrail": guardrail, "error": str(exc)},
             status_code=400,
         )
     return RedirectResponse(url=f"/guardrails/{guardrail.id}", status_code=303)
@@ -757,6 +769,8 @@ def delete_guardrail_route(guardrail_id: str, service: GuardrailService = Depend
         flash = f"not_found:{guardrail_id}"
     return RedirectResponse(url=f"/guardrails?flash={flash}", status_code=303)
 ```
+
+**Note on the installed Starlette version:** `Jinja2Templates.TemplateResponse` in the resolved Starlette version is `(request, name, context=None, status_code=200, ...)` — `request` is a required first positional argument, not a `"request"` key inside the context dict. Every `TemplateResponse` call in this task uses this new-style call.
 
 Create `src/redis_guardrails/web/templates/guardrails/list.html`:
 
@@ -1008,8 +1022,9 @@ def _parse_optional_int(raw: str) -> int | None:
 @router.get("/evaluate")
 def evaluate_form(request: Request):
     return templates.TemplateResponse(
+        request,
         "prompts/run.html",
-        {"request": request, "result": None, "stage": "input", "text": "", "request_text": ""},
+        {"result": None, "stage": "input", "text": "", "request_text": ""},
     )
 
 
@@ -1035,10 +1050,13 @@ def evaluate_submit(
         result = evaluate_prompt_input(service, text, **overrides)
 
     return templates.TemplateResponse(
+        request,
         "prompts/run.html",
-        {"request": request, "result": result, "stage": stage, "text": text, "request_text": request_text},
+        {"result": result, "stage": stage, "text": text, "request_text": request_text},
     )
 ```
+
+**Note on the installed Starlette version:** `Jinja2Templates.TemplateResponse` in the resolved Starlette version is `(request, name, context=None, status_code=200, ...)` — `request` is a required first positional argument, not a `"request"` key inside the context dict. Every `TemplateResponse` call in this task uses this new-style call.
 
 Create `src/redis_guardrails/web/templates/prompts/run.html`:
 
@@ -1275,8 +1293,9 @@ def _preset_files() -> list[str]:
 @router.get("")
 def benchmarks_form(request: Request):
     return templates.TemplateResponse(
+        request,
         "benchmarks/index.html",
-        {"request": request, "presets": _preset_files(), "cases": None, "performance": None,
+        {"presets": _preset_files(), "cases": None, "performance": None,
          "classify": classify, "error": None},
     )
 
@@ -1317,8 +1336,9 @@ async def run_benchmarks(
         cases = run_benchmark(service, path, **overrides)
     except (ValueError, json.JSONDecodeError, KeyError, TypeError) as exc:
         return templates.TemplateResponse(
+            request,
             "benchmarks/index.html",
-            {"request": request, "presets": presets, "cases": None, "performance": None,
+            {"presets": presets, "cases": None, "performance": None,
              "classify": classify, "error": str(exc)},
             status_code=400,
         )
@@ -1328,11 +1348,14 @@ async def run_benchmarks(
 
     performance = summarize_performance(cases)
     return templates.TemplateResponse(
+        request,
         "benchmarks/index.html",
-        {"request": request, "presets": presets, "cases": cases, "performance": performance,
+        {"presets": presets, "cases": cases, "performance": performance,
          "classify": classify, "error": None},
     )
 ```
+
+**Note on the installed Starlette version:** `Jinja2Templates.TemplateResponse` in the resolved Starlette version is `(request, name, context=None, status_code=200, ...)` — `request` is a required first positional argument, not a `"request"` key inside the context dict. Every `TemplateResponse` call in this task uses this new-style call.
 
 Create `src/redis_guardrails/web/templates/benchmarks/index.html`:
 
