@@ -270,3 +270,27 @@ def test_evaluate_input_help_documents_chunking_options():
     assert "--max-chars" in result.output
     assert "--overlap-chars" in result.output
     assert "--max-chunks" in result.output
+
+
+def test_serve_command_documents_host_and_port_options():
+    result = CliRunner().invoke(cli, ["serve", "--help"])
+    assert result.exit_code == 0
+    assert "--host" in result.output
+    assert "--port" in result.output
+
+
+def test_serve_command_raises_clean_error_when_web_extras_missing(monkeypatch):
+    import builtins
+
+    real_import = builtins.__import__
+
+    def blocking_import(name, *args, **kwargs):
+        if name == "uvicorn" or name.startswith("uvicorn."):
+            raise ImportError("blocked for test")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", blocking_import)
+
+    result = CliRunner().invoke(cli, ["serve"])
+    assert result.exit_code == 1
+    assert "pip install -e '.[web]'" in result.output

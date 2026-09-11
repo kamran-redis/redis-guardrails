@@ -111,6 +111,15 @@ redis-guardrails load path/to/your-guardrails.json --overwrite
 
 Each entry needs `id`, `stage` (`input`/`output`), `category`, `description`, `examples` (a list of phrases), `action` (`ALLOW`/`FLAG`/`BLOCK`), and `match_threshold` (a number between 0 and 2 — lower means stricter matching). If a file has any bad entries, `load` still loads everything else and reports which ones failed and why.
 
+### `serve` — launch the web GUI
+
+```bash
+redis-guardrails serve
+# -> Starting redis_guardrails web GUI at http://127.0.0.1:8000 ...
+```
+
+Open http://127.0.0.1:8000 in a browser to run prompts, run benchmarks, and manage guardrails interactively — the same three things the CLI does, in a browser. Requires the `web` extra: `pip install -e ".[web]"`. Accepts the same `--redis-url`/`--model` options (and `REDIS_URL`/`REDIS_GUARDRAILS_MODEL` env vars) as every other command, plus `--host`/`--port` (defaults `127.0.0.1:8000`).
+
 ## Using it as a library
 
 ```python
@@ -151,6 +160,6 @@ The `REDIS_GUARDRAILS_ALLOW_TEST_OVERWRITE` variable is a safety gate: some test
 ## What's included / what's not (yet)
 
 - ✅ Core evaluation API (`evaluate_input`/`evaluate_output`), guardrail CRUD, long-text chunking, `INDETERMINATE` handling.
-- ✅ Command-line interface (`load`, `benchmark`, `evaluate`).
-- 🚧 A GUI for browsing guardrails and running prompts interactively is planned but not built yet. The CLI's underlying logic (`redis_guardrails.cli.core`) is deliberately framework-agnostic so the GUI can reuse it directly.
+- ✅ Command-line interface (`load`, `benchmark`, `evaluate`, `serve`).
+- ✅ A web GUI (`redis-guardrails serve`) for running prompts, running benchmarks, and managing guardrails (create/edit/delete) interactively.
 - Production embedding model choice, Redis deployment/auth, and guardrail threshold tuning are left to you — the defaults here are reasonable starting points, not tuned for any specific production workload.

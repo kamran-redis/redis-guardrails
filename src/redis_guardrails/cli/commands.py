@@ -196,3 +196,23 @@ def evaluate_output_command(
         max_chars=max_chars, overlap_chars=overlap_chars, max_chunks=max_chunks,
     )
     click.echo(format_evaluation_result(result, trace=trace))
+
+
+@cli.command("serve")
+@_handle_errors
+@_redis_url_option
+@_model_option
+@click.option("--host", default="127.0.0.1", show_default=True, help="Host interface to bind the web server to.")
+@click.option("--port", type=int, default=8000, show_default=True, help="Port to bind the web server to.")
+def serve_command(redis_url: str, model: str, host: str, port: int):
+    """Launch the web GUI."""
+    try:
+        import uvicorn
+        from redis_guardrails.web.app import create_app
+    except ImportError as exc:
+        raise click.ClickException(
+            "the web GUI requires extra dependencies. Install with `pip install -e '.[web]'`."
+        ) from exc
+    app = create_app(redis_url=redis_url, model=model)
+    click.echo(f"Starting redis_guardrails web GUI at http://{host}:{port} (Redis: {redis_url}, model: {model})")
+    uvicorn.run(app, host=host, port=port)
