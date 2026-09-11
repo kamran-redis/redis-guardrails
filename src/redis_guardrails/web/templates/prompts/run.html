@@ -3,6 +3,8 @@
 {% block content %}
 <h1>Run a Prompt</h1>
 
+{% if error %}<div class="error-banner">{{ error }}</div>{% endif %}
+
 <form method="post" action="/prompts/evaluate">
   <div class="field">
     <label>Stage</label>

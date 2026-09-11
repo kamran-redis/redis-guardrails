@@ -118,7 +118,9 @@ redis-guardrails serve
 # -> Starting redis_guardrails web GUI at http://127.0.0.1:8000 ...
 ```
 
-Open http://127.0.0.1:8000 in a browser to run prompts, run benchmarks, and manage guardrails interactively — the same three things the CLI does, in a browser. Requires the `web` extra: `pip install -e ".[web]"`. Accepts the same `--redis-url`/`--model` options (and `REDIS_URL`/`REDIS_GUARDRAILS_MODEL` env vars) as every other command, plus `--host`/`--port` (defaults `127.0.0.1:8000`).
+Open http://127.0.0.1:8000 in a browser to run prompts, run benchmarks, and manage guardrails interactively — the same three things the CLI does, in a browser. Requires the `web` extra: `pip install -e ".[web,cli]"`. Accepts the same `--redis-url`/`--model` options (and `REDIS_URL`/`REDIS_GUARDRAILS_MODEL` env vars) as every other command, plus `--host`/`--port` (defaults `127.0.0.1:8000`).
+
+The benchmark preset-file list is resolved relative to the directory you run `serve` from — run it from the repo root (or wherever your `data/` directory lives) to see the shipped presets.
 
 ## Using it as a library
 

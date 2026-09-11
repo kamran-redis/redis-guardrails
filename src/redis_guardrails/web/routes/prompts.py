@@ -20,7 +20,7 @@ def evaluate_form(request: Request):
     return templates.TemplateResponse(
         request,
         "prompts/run.html",
-        {"result": None, "stage": "input", "text": "", "request_text": ""},
+        {"result": None, "stage": "input", "text": "", "request_text": "", "error": None},
     )
 
 
@@ -35,18 +35,26 @@ def evaluate_submit(
     max_chunks: str = Form(default=""),
     service: GuardrailService = Depends(get_service),
 ):
-    overrides = dict(
-        max_chars=_parse_optional_int(max_chars),
-        overlap_chars=_parse_optional_int(overlap_chars),
-        max_chunks=_parse_optional_int(max_chunks),
-    )
-    if stage == "output":
-        result = evaluate_prompt_output(service, text, request_text=request_text or None, **overrides)
-    else:
-        result = evaluate_prompt_input(service, text, **overrides)
+    try:
+        overrides = dict(
+            max_chars=_parse_optional_int(max_chars),
+            overlap_chars=_parse_optional_int(overlap_chars),
+            max_chunks=_parse_optional_int(max_chunks),
+        )
+        if stage == "output":
+            result = evaluate_prompt_output(service, text, request_text=request_text or None, **overrides)
+        else:
+            result = evaluate_prompt_input(service, text, **overrides)
+    except ValueError as exc:
+        return templates.TemplateResponse(
+            request,
+            "prompts/run.html",
+            {"error": str(exc), "result": None, "stage": stage, "text": text, "request_text": request_text},
+            status_code=400,
+        )
 
     return templates.TemplateResponse(
         request,
         "prompts/run.html",
-        {"result": result, "stage": stage, "text": text, "request_text": request_text},
+        {"result": result, "stage": stage, "text": text, "request_text": request_text, "error": None},
     )

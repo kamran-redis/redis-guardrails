@@ -61,8 +61,8 @@ async def run_benchmarks(
                 raise ValueError("no file was uploaded")
             contents = await upload_file.read()
             with tempfile.NamedTemporaryFile(suffix=".json", delete=False, mode="wb") as tmp:
-                tmp.write(contents)
                 tmp_path = Path(tmp.name)
+                tmp.write(contents)
             path = tmp_path
 
         overrides = dict(

@@ -18,7 +18,7 @@ def _build_app() -> FastAPI:
     """Wires routers/static only — no service, no lifespan. Shared by
     create_app() (production) and tests, so route registration never
     duplicates between the two."""
-    app = FastAPI(title="redis_guardrails")
+    app = FastAPI(title="redis_guardrails", docs_url=None, redoc_url=None, openapi_url=None)
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     register_exception_handlers(app)
     app.include_router(home.router)

@@ -46,3 +46,13 @@ def test_evaluate_too_many_chunks_shows_indeterminate_not_allow(client):
     assert response.status_code == 200
     assert "INDETERMINATE" in response.text
     assert "ALLOW" not in response.text
+
+
+def test_evaluate_with_invalid_chunking_override_shows_inline_error_not_traceback(client):
+    response = client.post(
+        "/prompts/evaluate",
+        data={"stage": "input", "text": "hello there", "max_chars": "ten"},
+    )
+    assert response.status_code == 400
+    assert "Traceback" not in response.text
+    assert "invalid literal for int" in response.text

@@ -27,6 +27,8 @@ def test_run_with_preset_shows_pass_fail_and_summary(client, store, tmp_path, mo
     assert response.status_code == 200
     assert "case-1" in response.text
     assert "PASS" in response.text
+    assert "Evaluations:" in response.text
+    assert "Avg total time" in response.text
 
 
 def test_run_with_uploaded_file_success(client):
