@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Run a Prompt{% endblock %}
+{% block content %}
+<h1>Run a Prompt</h1>
+
+<form method="post" action="/prompts/evaluate">
+  <div class="field">
+    <label>Stage</label>
+    <label><input type="radio" name="stage" value="input" {% if stage != "output" %}checked{% endif %}> input</label>
+    <label><input type="radio" name="stage" value="output" {% if stage == "output" %}checked{% endif %}> output</label>
+  </div>
+  <div class="field">
+    <label for="text">Text</label>
+    <textarea id="text" name="text" rows="5" required>{{ text }}</textarea>
+  </div>
+  <div class="field">
+    <label for="request_text">Request context (output stage only)</label>
+    <textarea id="request_text" name="request_text" rows="3">{{ request_text }}</textarea>
+  </div>
+  <details>
+    <summary>Chunking overrides</summary>
+    <div class="field"><label for="max_chars">Max chars</label><input type="text" id="max_chars" name="max_chars"></div>
+    <div class="field"><label for="overlap_chars">Overlap chars</label><input type="text" id="overlap_chars" name="overlap_chars"></div>
+    <div class="field"><label for="max_chunks">Max chunks</label><input type="text" id="max_chunks" name="max_chunks"></div>
+  </details>
+  <button type="submit">Evaluate</button>
+</form>
+
+{% if result %}
+<hr>
+<h2>Result</h2>
+<p><span class="badge {{ result.status }}">{{ result.status }}</span>
+   {% if result.action %}<span class="badge {{ result.action }}">{{ result.action }}</span>{% endif %}</p>
+
+{% if result.status == "INDETERMINATE" %}
+<p>Evaluation could not complete safely; treat as not allowed.</p>
+{% else %}
+
+{% if result.primary_match %}
+<p><strong>Primary match:</strong> {{ result.primary_match.rule_id }} ({{ result.primary_match.category }}),
+   distance {{ "%.2f"|format(result.primary_match.distance) }} &le; threshold {{ "%.2f"|format(result.primary_match.threshold) }}</p>
+{% else %}
+<p><strong>Primary match:</strong> none</p>
+{% endif %}
+
+{% if result.matches %}
+<h3>All matches ({{ result.matches|length }})</h3>
+<table>
+  <thead><tr><th>Rule</th><th>Category</th><th>Action</th><th>Distance</th><th>Threshold</th><th>Chunk</th><th>Evaluated text</th></tr></thead>
+  <tbody>
+    {% for m in result.matches %}
+    <tr>
+      <td>{{ m.rule_id }}</td><td>{{ m.category }}</td>
+      <td><span class="badge {{ m.action }}">{{ m.action }}</span></td>
+      <td>{{ "%.2f"|format(m.distance) }}</td><td>{{ "%.2f"|format(m.threshold) }}</td>
+      <td>{{ m.chunk_id }}</td><td>{{ m.evaluated_text }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if result.chunks %}
+<h3>Chunks ({{ result.chunks|length }})</h3>
+{% for c in result.chunks %}
+<div class="chunk">
+  <p><strong>[{{ c.id }}]</strong> chars {{ c.start_character }}-{{ c.end_character }}</p>
+  <p>Evaluated text: {{ c.evaluated_text }}</p>
+  {% set chunk_matches = result.matches|selectattr("chunk_id", "equalto", c.id)|list if result.matches else [] %}
+  {% if chunk_matches %}
+  <ul>
+    {% for m in chunk_matches %}
+    <li>{{ m.rule_id }} ({{ m.category }}) <span class="badge {{ m.action }}">{{ m.action }}</span> distance={{ "%.2f"|format(m.distance) }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>No matches for this chunk.</p>
+  {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+<p>Performance:
+   embedding {{ "%.1f"|format(result.performance.embedding_ms) if result.performance.embedding_ms is not none else "n/a" }}ms,
+   search {{ "%.1f"|format(result.performance.search_ms) if result.performance.search_ms is not none else "n/a" }}ms,
+   total {{ "%.1f"|format(result.performance.total_ms) }}ms</p>
+{% endif %}
+{% endif %}
+{% endblock %}
