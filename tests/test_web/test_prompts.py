@@ -1,3 +1,5 @@
+import json
+
 from redis_guardrails.models import Match
 
 
@@ -5,6 +7,36 @@ def test_evaluate_get_renders_empty_form(client):
     response = client.get("/prompts/evaluate")
     assert response.status_code == 200
     assert "Run a Prompt" in response.text
+
+
+def test_evaluate_get_lists_test_cases_from_data_dir(client, tmp_path, monkeypatch):
+    monkeypatch.setattr("redis_guardrails.web.routes.prompts.DATA_DIR", tmp_path)
+    (tmp_path / "sample.json").write_text(json.dumps([
+        {"id": "case-1", "stage": "input", "input": "block this", "category": "cat", "action": "BLOCK"},
+        {"id": "case-2", "stage": "output", "input": "what is my balance?", "output": "it is obvious",
+         "category": "cat", "action": "FLAG"},
+    ]))
+
+    response = client.get("/prompts/evaluate")
+    assert response.status_code == 200
+    assert "sample.json" in response.text
+    assert "case-1" in response.text
+    assert "case-2" in response.text
+    assert "block this" in response.text
+
+
+def test_evaluate_get_skips_malformed_test_data_files(client, tmp_path, monkeypatch):
+    monkeypatch.setattr("redis_guardrails.web.routes.prompts.DATA_DIR", tmp_path)
+    (tmp_path / "broken.json").write_text("not json")
+    (tmp_path / "wrong_shape.json").write_text(json.dumps({"not": "a list"}))
+    (tmp_path / "missing_fields.json").write_text(json.dumps([{"id": "no-stage-or-input"}]))
+    (tmp_path / "good.json").write_text(json.dumps([
+        {"id": "case-1", "stage": "input", "input": "hello", "category": "cat", "action": "ALLOW"},
+    ]))
+
+    response = client.get("/prompts/evaluate")
+    assert response.status_code == 200
+    assert "case-1" in response.text
 
 
 def test_evaluate_input_success_shows_action_and_matches(client, store):

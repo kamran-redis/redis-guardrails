@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Error {{ status_code }}{% endblock %}
 {% block content %}
-<h1>Error {{ status_code }}</h1>
-<p>{{ message }}</p>
-<p><a href="/">Back to home</a></p>
+<div class="panel">
+  <h1>Error {{ status_code }}</h1>
+  <p>{{ message }}</p>
+  <p><a href="/">Back to home</a></p>
+</div>
 {% endblock %}

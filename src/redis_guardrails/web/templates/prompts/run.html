@@ -5,32 +5,49 @@
 
 {% if error %}<div class="error-banner">{{ error }}</div>{% endif %}
 
-<form method="post" action="/prompts/evaluate">
+<div class="panel">
+  {% if test_cases %}
   <div class="field">
-    <label>Stage</label>
-    <label><input type="radio" name="stage" value="input" {% if stage != "output" %}checked{% endif %}> input</label>
-    <label><input type="radio" name="stage" value="output" {% if stage == "output" %}checked{% endif %}> output</label>
+    <label for="test_case_picker">Load from test data</label>
+    <select id="test_case_picker" onchange="redisGuardrailsFillFromTestCase(this)">
+      <option value="">— Select a test case —</option>
+      {% for c in test_cases %}
+      <option value="{{ c.file }}::{{ c.id }}"
+              data-stage="{{ c.stage }}"
+              data-text="{{ c.text }}"
+              data-request-text="{{ c.request_text }}">{{ c.file }} &middot; {{ c.id }} ({{ c.category or "n/a" }})</option>
+      {% endfor %}
+    </select>
   </div>
-  <div class="field">
-    <label for="text">Text</label>
-    <textarea id="text" name="text" rows="5" required>{{ text }}</textarea>
-  </div>
-  <div class="field">
-    <label for="request_text">Request context (output stage only)</label>
-    <textarea id="request_text" name="request_text" rows="3">{{ request_text }}</textarea>
-  </div>
-  <details>
-    <summary>Chunking overrides</summary>
-    <div class="field"><label for="max_chars">Max chars</label><input type="text" id="max_chars" name="max_chars"></div>
-    <div class="field"><label for="overlap_chars">Overlap chars</label><input type="text" id="overlap_chars" name="overlap_chars"></div>
-    <div class="field"><label for="max_chunks">Max chunks</label><input type="text" id="max_chunks" name="max_chunks"></div>
-  </details>
-  <button type="submit">Evaluate</button>
-</form>
+  {% endif %}
+
+  <form class="loading-form" method="post" action="/prompts/evaluate">
+    <div class="field">
+      <label>Stage</label>
+      <label><input type="radio" name="stage" value="input" {% if stage != "output" %}checked{% endif %}> input</label>
+      <label><input type="radio" name="stage" value="output" {% if stage == "output" %}checked{% endif %}> output</label>
+    </div>
+    <div class="field">
+      <label for="text">Text</label>
+      <textarea id="text" name="text" rows="5" required>{{ text }}</textarea>
+    </div>
+    <div class="field">
+      <label for="request_text">Request context (output stage only)</label>
+      <textarea id="request_text" name="request_text" rows="3">{{ request_text }}</textarea>
+    </div>
+    <details>
+      <summary>Chunking overrides</summary>
+      <div class="field"><label for="max_chars">Max chars</label><input type="text" id="max_chars" name="max_chars"></div>
+      <div class="field"><label for="overlap_chars">Overlap chars</label><input type="text" id="overlap_chars" name="overlap_chars"></div>
+      <div class="field"><label for="max_chunks">Max chunks</label><input type="text" id="max_chunks" name="max_chunks"></div>
+    </details>
+    <button type="submit">Evaluate</button>
+  </form>
+</div>
 
 {% if result %}
-<hr>
 <h2>Result</h2>
+<div class="panel">
 <p><span class="badge {{ result.status }}">{{ result.status }}</span>
    {% if result.action %}<span class="badge {{ result.action }}">{{ result.action }}</span>{% endif %}</p>
 
@@ -87,5 +104,17 @@
    search {{ "%.1f"|format(result.performance.search_ms) if result.performance.search_ms is not none else "n/a" }}ms,
    total {{ "%.1f"|format(result.performance.total_ms) }}ms</p>
 {% endif %}
+</div>
 {% endif %}
+
+<script>
+function redisGuardrailsFillFromTestCase(select) {
+  var opt = select.selectedOptions[0];
+  if (!opt || !opt.dataset.text) { return; }
+  var stageInput = document.querySelector('input[name="stage"][value="' + opt.dataset.stage + '"]');
+  if (stageInput) { stageInput.checked = true; }
+  document.getElementById('text').value = opt.dataset.text;
+  document.getElementById('request_text').value = opt.dataset.requestText || '';
+}
+</script>
 {% endblock %}

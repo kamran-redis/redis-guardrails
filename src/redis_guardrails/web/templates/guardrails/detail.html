@@ -2,22 +2,24 @@
 {% block title %}{{ guardrail.id }}{% endblock %}
 {% block content %}
 <h1>{{ guardrail.id }}</h1>
-<p><span class="badge {{ guardrail.action }}">{{ guardrail.action }}</span> &middot; {{ guardrail.stage }} stage</p>
-<p><strong>Category:</strong> {{ guardrail.category }}</p>
-<p><strong>Description:</strong> {{ guardrail.description }}</p>
-<p><strong>Match threshold:</strong> {{ guardrail.match_threshold }}</p>
-<p><strong>Examples:</strong></p>
-<ul>
-  {% for example in guardrail.examples %}
-  <li>{{ example }}</li>
-  {% endfor %}
-</ul>
-<p>
-  <a href="/guardrails/{{ guardrail.id }}/edit">Edit</a>
-  <form method="post" action="/guardrails/{{ guardrail.id }}/delete" style="display:inline"
-        onsubmit="return confirm('Delete guardrail {{ guardrail.id }}?');">
-    <button type="submit">Delete</button>
-  </form>
-  <a href="/guardrails">Back to list</a>
-</p>
+<div class="panel">
+  <p><span class="badge {{ guardrail.action }}">{{ guardrail.action }}</span> &middot; {{ guardrail.stage }} stage</p>
+  <p><strong>Category:</strong> {{ guardrail.category }}</p>
+  <p><strong>Description:</strong> {{ guardrail.description }}</p>
+  <p><strong>Match threshold:</strong> {{ guardrail.match_threshold }}</p>
+  <p><strong>Examples:</strong></p>
+  <ul>
+    {% for example in guardrail.examples %}
+    <li>{{ example }}</li>
+    {% endfor %}
+  </ul>
+  <div class="actions">
+    <a href="/guardrails/{{ guardrail.id }}/edit">Edit</a>
+    <form method="post" action="/guardrails/{{ guardrail.id }}/delete"
+          onsubmit="return confirm('Delete guardrail {{ guardrail.id }}?');">
+      <button type="submit">Delete</button>
+    </form>
+    <a href="/guardrails">Back to list</a>
+  </div>
+</div>
 {% endblock %}

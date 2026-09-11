@@ -10,34 +10,38 @@
   </div>
 {% endif %}
 
-<p>
-  <a href="/guardrails">All</a> |
-  <a href="/guardrails?stage=input">Input</a> |
-  <a href="/guardrails?stage=output">Output</a> |
-  <a href="/guardrails/new">+ New guardrail</a>
-</p>
+<div class="panel">
+  <p class="actions" style="margin-bottom: var(--space-4);">
+    <a href="/guardrails">All</a> |
+    <a href="/guardrails?stage=input">Input</a> |
+    <a href="/guardrails?stage=output">Output</a> |
+    <a href="/guardrails/new">+ New guardrail</a>
+  </p>
 
-<table>
-  <thead>
-    <tr><th>ID</th><th>Stage</th><th>Category</th><th>Action</th><th>Threshold</th><th></th></tr>
-  </thead>
-  <tbody>
-    {% for g in guardrails %}
-    <tr>
-      <td><a href="/guardrails/{{ g.id }}">{{ g.id }}</a></td>
-      <td>{{ g.stage }}</td>
-      <td>{{ g.category }}</td>
-      <td><span class="badge {{ g.action }}">{{ g.action }}</span></td>
-      <td>{{ g.match_threshold }}</td>
-      <td>
-        <a href="/guardrails/{{ g.id }}/edit">Edit</a>
-        <form method="post" action="/guardrails/{{ g.id }}/delete" style="display:inline"
-              onsubmit="return confirm('Delete guardrail {{ g.id }}?');">
-          <button type="submit">Delete</button>
-        </form>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Stage</th><th>Category</th><th>Action</th><th>Threshold</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for g in guardrails %}
+      <tr>
+        <td><a href="/guardrails/{{ g.id }}">{{ g.id }}</a></td>
+        <td>{{ g.stage }}</td>
+        <td>{{ g.category }}</td>
+        <td><span class="badge {{ g.action }}">{{ g.action }}</span></td>
+        <td>{{ g.match_threshold }}</td>
+        <td>
+          <div class="actions">
+            <a href="/guardrails/{{ g.id }}/edit">Edit</a>
+            <form method="post" action="/guardrails/{{ g.id }}/delete"
+                  onsubmit="return confirm('Delete guardrail {{ g.id }}?');">
+              <button type="submit">Delete</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endblock %}

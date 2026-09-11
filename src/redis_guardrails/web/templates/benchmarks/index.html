@@ -5,46 +5,49 @@
 
 {% if error %}<div class="error-banner">{{ error }}</div>{% endif %}
 
-<form method="post" action="/benchmarks/run" enctype="multipart/form-data">
-  <div class="field">
-    <label><input type="radio" name="source" value="preset" checked> Existing file</label>
-    <select name="preset_path">
-      {% for p in presets %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
-    </select>
-  </div>
-  <div class="field">
-    <label><input type="radio" name="source" value="upload"> Upload a file</label>
-    <input type="file" name="upload_file" accept=".json">
-  </div>
-  <details>
-    <summary>Chunking overrides</summary>
-    <div class="field"><label for="max_chars">Max chars</label><input type="text" id="max_chars" name="max_chars"></div>
-    <div class="field"><label for="overlap_chars">Overlap chars</label><input type="text" id="overlap_chars" name="overlap_chars"></div>
-    <div class="field"><label for="max_chunks">Max chunks</label><input type="text" id="max_chunks" name="max_chunks"></div>
-  </details>
-  <button type="submit">Run</button>
-</form>
+<div class="panel">
+  <form class="loading-form" method="post" action="/benchmarks/run" enctype="multipart/form-data">
+    <div class="field">
+      <label><input type="radio" name="source" value="preset" checked> Existing file</label>
+      <select name="preset_path">
+        {% for p in presets %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label><input type="radio" name="source" value="upload"> Upload a file</label>
+      <input type="file" name="upload_file" accept=".json">
+    </div>
+    <details>
+      <summary>Chunking overrides</summary>
+      <div class="field"><label for="max_chars">Max chars</label><input type="text" id="max_chars" name="max_chars"></div>
+      <div class="field"><label for="overlap_chars">Overlap chars</label><input type="text" id="overlap_chars" name="overlap_chars"></div>
+      <div class="field"><label for="max_chunks">Max chunks</label><input type="text" id="max_chunks" name="max_chunks"></div>
+    </details>
+    <button type="submit">Run</button>
+  </form>
+</div>
 
 {% if cases is not none %}
-<hr>
 <h2>Results</h2>
-<table>
-  <thead><tr><th>Case</th><th>Stage</th><th>Category</th><th>Expected</th><th>Actual</th><th>Result</th></tr></thead>
-  <tbody>
-    {% for case in cases %}
-    <tr>
-      <td>{{ case.case_id }}</td><td>{{ case.stage }}</td><td>{{ case.category or "n/a" }}</td>
-      <td>{{ case.expected_action }}</td><td>{{ case.result.action or "n/a" }}</td>
-      <td>{{ classify(case) }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="panel">
+  <table>
+    <thead><tr><th>Case</th><th>Stage</th><th>Category</th><th>Expected</th><th>Actual</th><th>Result</th></tr></thead>
+    <tbody>
+      {% for case in cases %}
+      <tr>
+        <td>{{ case.case_id }}</td><td>{{ case.stage }}</td><td>{{ case.category or "n/a" }}</td>
+        <td>{{ case.expected_action }}</td><td>{{ case.result.action or "n/a" }}</td>
+        <td>{{ classify(case) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 
-<h3>Performance</h3>
-<p>Evaluations: {{ performance.count }}</p>
-<p>Avg total time: {{ "%.1f"|format(performance.avg_total_ms) }}ms</p>
-<p>p95 total time: {{ "%.1f"|format(performance.p95_total_ms) }}ms</p>
-<p>Indeterminate: {{ performance.indeterminate_count }}</p>
+  <h3>Performance</h3>
+  <p>Evaluations: {{ performance.count }}</p>
+  <p>Avg total time: {{ "%.1f"|format(performance.avg_total_ms) }}ms</p>
+  <p>p95 total time: {{ "%.1f"|format(performance.p95_total_ms) }}ms</p>
+  <p>Indeterminate: {{ performance.indeterminate_count }}</p>
+</div>
 {% endif %}
 {% endblock %}
