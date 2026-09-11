@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}redis_guardrails{% endblock %}
+{% block content %}
+<h1>redis_guardrails</h1>
+<div class="cards">
+    <a class="card" href="/prompts/evaluate">
+        <h2>Run a Prompt</h2>
+        <p>Evaluate an input or output against the current guardrails.</p>
+    </a>
+    <a class="card" href="/benchmarks">
+        <h2>Run a Benchmark</h2>
+        <p>Run a test-data file and see pass/fail and performance.</p>
+    </a>
+    <a class="card" href="/guardrails">
+        <h2>Manage Guardrails</h2>
+        <p>Browse, create, edit, and delete guardrails.</p>
+    </a>
+</div>
+{% endblock %}
