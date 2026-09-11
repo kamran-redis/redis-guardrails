@@ -4,11 +4,16 @@ version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
     "redisvl>=0.27.1",
+    "click>=8.1",
 ]
 
 [project.optional-dependencies]
 test = ["pytest>=8"]
 embeddings = ["sentence-transformers"]
+cli = ["sentence-transformers"]
+
+[project.scripts]
+redis-guardrails = "redis_guardrails.cli:cli"
 
 [tool.pytest.ini_options]
 markers = [
