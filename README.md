@@ -77,7 +77,7 @@ redis-guardrails evaluate output --response "Sure, here's how..."
 redis-guardrails evaluate output --request "How do I reset my password?" --response "Sure, here's how..."
 ```
 
-Every result reports a `status` (`COMPLETED` or `INDETERMINATE`), an `action` (`ALLOW`/`FLAG`/`BLOCK`), which guardrail triggered it (if any), the full list of every guardrail that matched (with the exact `evaluated_text` compared against it), and timing. Add `--trace` to additionally see how the input was split into chunks (character ranges) — useful when tuning chunk size on long text.
+Every result reports a `status` (`COMPLETED` or `INDETERMINATE`), an `action` (`ALLOW`/`FLAG`/`BLOCK`), which guardrail triggered it (if any), the full list of every guardrail that matched (with the exact `evaluated_text` compared against it), and timing. Add `--trace` to additionally see how the input was split into chunks (character ranges) and which guardrails matched each individual chunk — useful when tuning chunk size on long text.
 
 ### `benchmark` — run a batch of test cases
 

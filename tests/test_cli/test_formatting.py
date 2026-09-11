@@ -92,6 +92,23 @@ def test_format_evaluation_result_trace_adds_chunk_breakdown_evaluated_text_only
     assert "    text:" not in text
 
 
+def test_format_evaluation_result_trace_shows_matches_per_chunk():
+    match = Match(
+        rule_id="g-1", category="cat", action="BLOCK", distance=0.2, threshold=0.5,
+        chunk_id="input-1", evaluated_text="disregard everything",
+    )
+    chunk_no_match = Chunk(id="input-0", source="input", start_character=0, end_character=4, text="raw", evaluated_text="hello there")
+    chunk_matched = Chunk(id="input-1", source="input", start_character=4, end_character=8, text="raw", evaluated_text="disregard everything")
+    result = _eval_result(matches=[match], chunks=[chunk_no_match, chunk_matched])
+    text = format_evaluation_result(result, trace=True)
+
+    no_match_index = text.index("[input-0]")
+    matched_index = text.index("[input-1]")
+    assert "matches: none" in text[no_match_index:matched_index]
+    assert "matches (1):" in text[matched_index:]
+    assert "g-1" in text[matched_index:]
+
+
 def test_format_benchmark_report_includes_case_summary_and_categories():
     case = CaseResult(case_id="c-1", stage="input", category="cat", expected_action="BLOCK", result=_eval_result(action="BLOCK"))
     performance = PerformanceSummary(count=1, avg_embedding_ms=1.0, avg_search_ms=2.0, avg_total_ms=3.0, p95_total_ms=3.0, indeterminate_count=0)
