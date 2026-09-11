@@ -35,7 +35,7 @@ class HashVectorizer(BaseVectorizer):
         return [self._hash_to_vector(t) for t in (contents or texts)]
 
 
-from redis_guardrails.errors import GuardrailNotFoundError
+from redis_guardrails.errors import DuplicateGuardrailError, GuardrailNotFoundError
 from redis_guardrails.models import Chunk, Guardrail, Match
 
 
@@ -55,6 +55,8 @@ class FakeStore:
         self.embedded_texts: list[str] = []
 
     def add(self, guardrail: Guardrail) -> None:
+        if guardrail.id in self._guardrails:
+            raise DuplicateGuardrailError(guardrail.id)
         self._guardrails[guardrail.id] = guardrail
 
     def update(self, guardrail: Guardrail) -> None:
