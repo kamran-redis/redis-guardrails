@@ -7,4 +7,4 @@ router = APIRouter()
 
 @router.get("/")
 def home(request: Request):
-    return templates.TemplateResponse("home.html", {"request": request})
+    return templates.TemplateResponse(request, "home.html", {})
