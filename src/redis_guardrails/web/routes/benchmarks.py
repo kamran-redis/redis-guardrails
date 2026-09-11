@@ -48,11 +48,6 @@ async def run_benchmarks(
     max_chunks: str = Form(default=""),
     service: GuardrailService = Depends(get_service),
 ):
-    overrides = dict(
-        max_chars=_parse_optional_int(max_chars),
-        overlap_chars=_parse_optional_int(overlap_chars),
-        max_chunks=_parse_optional_int(max_chunks),
-    )
     presets = _preset_files()
     tmp_path: Path | None = None
 
@@ -70,6 +65,11 @@ async def run_benchmarks(
                 tmp_path = Path(tmp.name)
             path = tmp_path
 
+        overrides = dict(
+            max_chars=_parse_optional_int(max_chars),
+            overlap_chars=_parse_optional_int(overlap_chars),
+            max_chunks=_parse_optional_int(max_chunks),
+        )
         cases = run_benchmark(service, path, **overrides)
     except (ValueError, json.JSONDecodeError, KeyError, TypeError) as exc:
         return templates.TemplateResponse(
