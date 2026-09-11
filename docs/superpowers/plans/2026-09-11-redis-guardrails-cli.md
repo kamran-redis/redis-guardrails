@@ -949,6 +949,7 @@ from redis_guardrails.cli.core import (
     DEFAULT_MODEL,
     DEFAULT_REDIS_URL,
     build_service,
+    classify,
     evaluate_prompt_input,
     evaluate_prompt_output,
     load_guardrails_from_file,
@@ -1011,9 +1012,7 @@ def benchmark_command(path: Path, redis_url: str, model: str, min_accuracy: floa
     click.echo(format_benchmark_report(cases, performance))
 
     if min_accuracy is not None and cases:
-        passed = sum(
-            1 for c in cases if c.result.status == "COMPLETED" and c.result.action == c.expected_action
-        )
+        passed = sum(1 for c in cases if classify(c) == "PASS")
         accuracy = passed / len(cases)
         if accuracy < min_accuracy:
             raise SystemExit(1)
