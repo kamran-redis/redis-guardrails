@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, Form, Request
 
 from redis_guardrails import GuardrailService
-from redis_guardrails.cli.core import evaluate_prompt_input, evaluate_prompt_output
+from redis_guardrails.cli.core import evaluate_prompt
 from redis_guardrails.web.deps import get_service
 from redis_guardrails.web.templating import templates
 
@@ -39,10 +39,7 @@ def _load_test_cases() -> list[dict]:
                 continue
             try:
                 stage = case["stage"]
-                if stage == "output":
-                    text, request_text = case["output"], case.get("input", "")
-                else:
-                    text, request_text = case["input"], ""
+                text = case["text"]
                 case_id = case["id"]
             except KeyError:
                 continue
@@ -52,20 +49,24 @@ def _load_test_cases() -> list[dict]:
                 "stage": stage,
                 "category": case.get("category") or "other",
                 "text": text,
-                "request_text": request_text,
+                "context": case.get("context") or "",
             })
     cases.sort(key=lambda c: (c["category"], c["file"], c["id"]))
     return cases
 
 
+def _known_stages(service: GuardrailService) -> list[str]:
+    return sorted({g.stage for g in service.list_guardrails()})
+
+
 @router.get("/evaluate")
-def evaluate_form(request: Request):
+def evaluate_form(request: Request, service: GuardrailService = Depends(get_service)):
     return templates.TemplateResponse(
         request,
         "prompts/run.html",
         {
-            "result": None, "stage": "input", "text": "", "request_text": "", "error": None,
-            "test_cases": _load_test_cases(),
+            "result": None, "stage": "", "text": "", "context": "", "error": None,
+            "test_cases": _load_test_cases(), "stages": _known_stages(service),
         },
     )
 
@@ -75,7 +76,7 @@ def evaluate_submit(
     request: Request,
     stage: str = Form(...),
     text: str = Form(...),
-    request_text: str = Form(default=""),
+    context: str = Form(default=""),
     max_chars: str = Form(default=""),
     overlap_chars: str = Form(default=""),
     max_chunks: str = Form(default=""),
@@ -87,17 +88,14 @@ def evaluate_submit(
             overlap_chars=_parse_optional_int(overlap_chars),
             max_chunks=_parse_optional_int(max_chunks),
         )
-        if stage == "output":
-            result = evaluate_prompt_output(service, text, request_text=request_text or None, **overrides)
-        else:
-            result = evaluate_prompt_input(service, text, **overrides)
+        result = evaluate_prompt(service, stage, text, context=context or None, **overrides)
     except ValueError as exc:
         return templates.TemplateResponse(
             request,
             "prompts/run.html",
             {
-                "error": str(exc), "result": None, "stage": stage, "text": text, "request_text": request_text,
-                "test_cases": _load_test_cases(),
+                "error": str(exc), "result": None, "stage": stage, "text": text, "context": context,
+                "test_cases": _load_test_cases(), "stages": _known_stages(service),
             },
             status_code=400,
         )
@@ -106,7 +104,7 @@ def evaluate_submit(
         request,
         "prompts/run.html",
         {
-            "result": result, "stage": stage, "text": text, "request_text": request_text, "error": None,
-            "test_cases": _load_test_cases(),
+            "result": result, "stage": stage, "text": text, "context": context, "error": None,
+            "test_cases": _load_test_cases(), "stages": _known_stages(service),
         },
     )

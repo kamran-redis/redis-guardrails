@@ -10,22 +10,21 @@
     <div class="panel">
       <form class="loading-form" method="post" action="/prompts/evaluate" id="evaluate-form">
         <div class="field">
-          <label>Stage</label>
-          <div class="segmented">
-            <input type="radio" id="stage-input" name="stage" value="input" {% if stage != "output" %}checked{% endif %}>
-            <label for="stage-input">input</label>
-            <input type="radio" id="stage-output" name="stage" value="output" {% if stage == "output" %}checked{% endif %}>
-            <label for="stage-output">output</label>
-          </div>
-          <p class="field-hint">Different guardrails apply to what the customer sends (input) vs. what the bot sends back (output). Picking an example below sets this for you.</p>
+          <label for="stage">Stage</label>
+          <select id="stage" name="stage" required>
+            {% for s in stages %}
+            <option value="{{ s }}" {% if s == stage %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+          <p class="field-hint">Different guardrails apply to different stages of the conversation. Picking an example below sets this for you.</p>
         </div>
         <div class="field">
           <label for="text">Message</label>
           <textarea id="text" name="text" rows="5" required>{{ text }}</textarea>
         </div>
-        <div class="field" id="request-text-field" {% if stage != "output" %}style="display:none"{% endif %}>
-          <label for="request_text">Request context (the message the bot was replying to)</label>
-          <textarea id="request_text" name="request_text" rows="3">{{ request_text }}</textarea>
+        <div class="field">
+          <label for="context">Context (optional — e.g. the prior turn)</label>
+          <textarea id="context" name="context" rows="3">{{ context }}</textarea>
         </div>
 
         {% if test_cases %}
@@ -39,7 +38,7 @@
               <button type="button" class="chip"
                       data-stage="{{ c.stage }}"
                       data-text="{{ c.text }}"
-                      data-request-text="{{ c.request_text }}"
+                      data-context="{{ c.context }}"
                       title="{{ c.file }}: {{ c.id }} ({{ c.stage }})">{{ c.stage }}: {{ c.text[:48] }}{% if c.text|length > 48 %}…{% endif %}</button>
               {% endfor %}
             </div>
@@ -148,22 +147,12 @@
 
 <script>
 (function () {
-  var stageInputs = document.querySelectorAll('input[name="stage"]');
-  var requestTextField = document.getElementById('request-text-field');
-
-  function syncRequestTextVisibility() {
-    var isOutput = document.querySelector('input[name="stage"]:checked').value === 'output';
-    requestTextField.style.display = isOutput ? '' : 'none';
-  }
-  stageInputs.forEach(function (input) { input.addEventListener('change', syncRequestTextVisibility); });
-
   document.querySelectorAll('.chip').forEach(function (chip) {
     chip.addEventListener('click', function () {
-      var stageInput = document.querySelector('input[name="stage"][value="' + chip.dataset.stage + '"]');
-      if (stageInput) { stageInput.checked = true; }
+      var stageSelect = document.getElementById('stage');
+      if (stageSelect && chip.dataset.stage) { stageSelect.value = chip.dataset.stage; }
       document.getElementById('text').value = chip.dataset.text;
-      document.getElementById('request_text').value = chip.dataset.requestText || '';
-      syncRequestTextVisibility();
+      document.getElementById('context').value = chip.dataset.context || '';
     });
   });
 })();
