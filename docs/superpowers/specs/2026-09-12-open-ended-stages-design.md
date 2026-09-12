@@ -147,11 +147,9 @@ exposed as a first-class idea.
 - `evaluate_input(text)` → `evaluate("input", text)`
 - `evaluate_output(response_text, request_text=r)` → `evaluate("output", response_text, context=r)`
 
-Recommend removing the two named methods outright rather than keeping them
-as deprecated wrappers — this is a pre-1.0 internal tool and every caller
-lives in this same repo (CLI, web, tests). Two parallel surfaces would just
-be drift waiting to happen. (Flagged as an open decision below in case
-there's a reason to keep them.)
+The two named methods are removed outright, no deprecated wrappers — this
+is a pre-1.0 internal tool, every caller lives in this same repo (CLI, web,
+tests), and there's no backward compatibility to preserve.
 
 ## CLI changes (`cli/`)
 
@@ -190,10 +188,8 @@ directly):
 ```
 For `input`-stage cases, `context` is simply omitted. This is a real
 migration of `data/testdata.json` and `data/testdata_extra.json` (76 cases
-total) — recommend doing it for real rather than adding a compatibility
-shim that reads both old and new key names, since it's a one-time, scriptable
-rename and a shim would just be permanent complexity for a format only this
-project's own test data uses.
+total) — a one-time, scriptable rename, no compatibility shim for the old
+key names.
 
 `web/routes/prompts.py`'s `_load_test_cases()` picks up the new keys
 directly (`case["text"]`, `case.get("context")`) instead of its current
@@ -234,16 +230,22 @@ branch.
   guardrail on that stage; the evaluate page's stage list picks it up.
 - `run_benchmark` against a test-data file using a novel stage name.
 
-## Open decisions for spec review
+## Decided (no backward compatibility needed)
 
-1. Remove `evaluate_input`/`evaluate_output` outright (recommended) vs. keep
-   as deprecated thin wrappers during a transition window.
-2. Stages registry as an explicit Redis SET (recommended — version-stable,
+- `evaluate_input`/`evaluate_output` are **removed outright** — no
+  deprecated wrappers, no transition window. Every in-repo caller (CLI,
+  web, tests) is updated to call `evaluate(stage, text, context=...)`
+  directly.
+- `data/testdata.json` / `data/testdata_extra.json` get a **real migration**
+  to the `text`/`context` key shape — no compatibility shim reading both
+  old and new shapes. There is no external consumer of these files to stay
+  compatible with.
+
+## Open decisions still to confirm
+
+1. Stages registry as an explicit Redis SET (recommended — version-stable,
    doesn't depend on RediSearch introspection commands) vs. discovering
    existing routers by scanning for `guardrails-*` indices directly.
-3. Fix the `BUGS.md` router-staleness bug together with this change
+2. Fix the `BUGS.md` router-staleness bug together with this change
    (recommended, since this change makes it worse) vs. ship this
    independently and fix that bug separately later.
-4. Real migration of `data/testdata.json` / `data/testdata_extra.json` to
-   the new `text`/`context` keys (recommended) vs. a compatibility shim
-   supporting both shapes.
