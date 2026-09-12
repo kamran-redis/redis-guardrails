@@ -143,7 +143,7 @@ def benchmark_command(
 
 @cli.command("evaluate")
 @_handle_errors
-@click.option("--stage", required=True, help="Which guardrail stage to check against (e.g. input, output).")
+@click.option("--scope", required=True, help="Which guardrail scope to check against (e.g. input, output).")
 @click.argument("text")
 @click.option("--context", default=None, help="Optional prior-turn context (e.g. the original request), for dialogue-shaped checks.")
 @_redis_url_option
@@ -153,7 +153,7 @@ def benchmark_command(
 @_overlap_chars_option
 @_max_chunks_option
 def evaluate_command(
-    stage: str,
+    scope: str,
     text: str,
     context: str | None,
     redis_url: str,
@@ -163,10 +163,10 @@ def evaluate_command(
     overlap_chars: int | None,
     max_chunks: int | None,
 ):
-    """Evaluate a single prompt against one guardrail stage."""
+    """Evaluate a single prompt against one guardrail scope."""
     service = build_service(redis_url=redis_url, model=model, overwrite=False)
     result = evaluate_prompt(
-        service, stage, text, context=context,
+        service, scope, text, context=context,
         max_chars=max_chars, overlap_chars=overlap_chars, max_chunks=max_chunks,
     )
     click.echo(format_evaluation_result(result, trace=trace))

@@ -27,7 +27,7 @@ def test_format_load_report_with_errors():
 
 def _eval_result(**overrides) -> EvaluationResult:
     defaults = dict(
-        evaluation_id="eval-1", stage="input", status="COMPLETED", action="BLOCK",
+        evaluation_id="eval-1", scope="input", status="COMPLETED", action="BLOCK",
         primary_match=None, matches=None, chunks=None,
         performance=PerformanceInfo(embedding_ms=1.0, search_ms=2.0, total_ms=3.0),
     )
@@ -110,7 +110,7 @@ def test_format_evaluation_result_trace_shows_matches_per_chunk():
 
 
 def test_format_benchmark_report_includes_case_summary_and_categories():
-    case = CaseResult(case_id="c-1", stage="input", category="cat", expected_action="BLOCK", result=_eval_result(action="BLOCK"))
+    case = CaseResult(case_id="c-1", scope="input", category="cat", expected_action="BLOCK", result=_eval_result(action="BLOCK"))
     performance = PerformanceSummary(count=1, avg_embedding_ms=1.0, avg_search_ms=2.0, avg_total_ms=3.0, p95_total_ms=3.0, indeterminate_count=0)
     text = format_benchmark_report([case], performance)
     assert "c-1" in text
@@ -124,7 +124,7 @@ def test_format_benchmark_report_handles_case_with_no_category():
     # Seed testdata.json has "safe" cases with category: null (they don't
     # belong to any guardrail category) -- the report must not crash on
     # that, and should render a placeholder instead of the literal None.
-    case = CaseResult(case_id="c-1", stage="input", category=None, expected_action="ALLOW", result=_eval_result(action="ALLOW"))
+    case = CaseResult(case_id="c-1", scope="input", category=None, expected_action="ALLOW", result=_eval_result(action="ALLOW"))
     performance = PerformanceSummary(count=1, avg_embedding_ms=1.0, avg_search_ms=2.0, avg_total_ms=3.0, p95_total_ms=3.0, indeterminate_count=0)
     text = format_benchmark_report([case], performance)
     assert "c-1" in text

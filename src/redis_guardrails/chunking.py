@@ -1,5 +1,5 @@
 from redis_guardrails.errors import IncompleteCoverageError
-from redis_guardrails.models import Chunk, Stage
+from redis_guardrails.models import Chunk, Scope
 
 DEFAULT_MAX_CHARS = 800
 DEFAULT_OVERLAP_CHARS = 100
@@ -9,7 +9,7 @@ DEFAULT_MAX_CHUNKS = 50
 def chunk_text(
     text: str,
     *,
-    source: Stage,
+    source: Scope,
     prefix: str = "",
     max_chars: int = DEFAULT_MAX_CHARS,
     overlap_chars: int = DEFAULT_OVERLAP_CHARS,

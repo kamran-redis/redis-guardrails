@@ -13,7 +13,7 @@ app's guardrail list / evaluate results don't reflect the new guardrails —
 restarting the web app is required to see them.
 
 **Likely cause:** `GuardrailStore.__init__` (`src/redis_guardrails/store.py`)
-builds one long-lived `SemanticRouter` per stage and holds it in
+builds one long-lived `SemanticRouter` per scope and holds it in
 `self._routers`. `create_app()`'s FastAPI lifespan builds this store once at
 process startup. The CLI is a separate short-lived process — it builds its
 own `GuardrailStore`/`SemanticRouter`, mutates Redis, then exits. The running

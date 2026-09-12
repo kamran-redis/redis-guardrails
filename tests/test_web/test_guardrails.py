@@ -3,18 +3,18 @@ from redis_guardrails.models import Guardrail
 
 def _guardrail_form(**overrides):
     defaults = dict(
-        id="g-1", stage="input", category="cat", description="desc",
+        id="g-1", scope="input", category="cat", description="desc",
         examples="hello\nworld", action="BLOCK", match_threshold="0.5",
     )
     defaults.update(overrides)
     return defaults
 
 
-def test_list_filters_by_stage(client, service):
-    service.add_guardrail(Guardrail(id="in-1", stage="input", category="cat", description="d", examples=["a"], action="BLOCK", match_threshold=0.5))
-    service.add_guardrail(Guardrail(id="out-1", stage="output", category="cat", description="d", examples=["a"], action="BLOCK", match_threshold=0.5))
+def test_list_filters_by_scope(client, service):
+    service.add_guardrail(Guardrail(id="in-1", scope="input", category="cat", description="d", examples=["a"], action="BLOCK", match_threshold=0.5))
+    service.add_guardrail(Guardrail(id="out-1", scope="output", category="cat", description="d", examples=["a"], action="BLOCK", match_threshold=0.5))
 
-    response = client.get("/guardrails", params={"stage": "input"})
+    response = client.get("/guardrails", params={"scope": "input"})
     assert "in-1" in response.text
     assert "out-1" not in response.text
 
@@ -25,7 +25,7 @@ def test_new_guardrail_form_renders(client):
     assert "New Guardrail" in response.text
 
 
-def test_new_guardrail_form_stage_datalist_is_never_empty(client):
+def test_new_guardrail_form_scope_datalist_is_never_empty(client):
     response = client.get("/guardrails/new")
     assert response.status_code == 200
     assert "input" in response.text
@@ -107,30 +107,30 @@ def test_delete_missing_guardrail_is_a_no_op_redirect(client):
     assert "flash=not_found" in response.headers["location"]
 
 
-def test_new_guardrail_form_suggests_existing_stages(client, store):
+def test_new_guardrail_form_suggests_existing_scopes(client, store):
     store.add(Guardrail(
-        id="g-1", stage="extra-stage", category="cat", description="d",
+        id="g-1", scope="extra-scope", category="cat", description="d",
         examples=["ex"], action="BLOCK", match_threshold=0.5,
     ))
     response = client.get("/guardrails/new")
     assert response.status_code == 200
-    assert "extra-stage" in response.text
+    assert "extra-scope" in response.text
 
 
-def test_can_create_guardrail_on_a_novel_stage(client):
+def test_can_create_guardrail_on_a_novel_scope(client):
     response = client.post("/guardrails/new", data={
-        "id": "g-novel", "stage": "extra-stage", "category": "cat", "description": "d",
+        "id": "g-novel", "scope": "extra-scope", "category": "cat", "description": "d",
         "examples": "an example", "action": "BLOCK", "match_threshold": "0.5",
     }, follow_redirects=False)
     assert response.status_code == 303
     assert response.headers["location"] == "/guardrails/g-novel"
 
 
-def test_list_page_shows_a_tab_for_each_stage_actually_present(client, store):
+def test_list_page_shows_a_tab_for_each_scope_actually_present(client, store):
     store.add(Guardrail(
-        id="g-1", stage="extra-stage", category="cat", description="d",
+        id="g-1", scope="extra-scope", category="cat", description="d",
         examples=["ex"], action="BLOCK", match_threshold=0.5,
     ))
     response = client.get("/guardrails")
     assert response.status_code == 200
-    assert "extra-stage" in response.text
+    assert "extra-scope" in response.text

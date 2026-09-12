@@ -12,11 +12,11 @@
       <input class="mono" type="text" id="id" name="id" value="{{ guardrail.id if guardrail else '' }}" {% if mode == 'edit' %}readonly{% endif %} required>
     </div>
     <div class="field">
-      <label for="stage">Stage</label>
-      <input type="text" id="stage" name="stage" list="known-stages"
-             value="{{ guardrail.stage if guardrail else '' }}" required>
-      <datalist id="known-stages">
-        {% for s in stages %}<option value="{{ s }}">{% endfor %}
+      <label for="scope">Scope</label>
+      <input type="text" id="scope" name="scope" list="known-scopes"
+             value="{{ guardrail.scope if guardrail else '' }}" required>
+      <datalist id="known-scopes">
+        {% for s in scopes %}<option value="{{ s }}">{% endfor %}
       </datalist>
     </div>
     <div class="field">

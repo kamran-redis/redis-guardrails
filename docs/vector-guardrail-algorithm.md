@@ -4,14 +4,14 @@
 
 This document explains how vector search can check user requests and model responses against a set of guardrails.
 
-All guardrail examples can be kept in one index. The `stage` field only tells the evaluator which guardrails apply at a particular point. It does not require separate indexes or separate algorithms.
+All guardrail examples can be kept in one index. The `scope` field only tells the evaluator which guardrails apply at a particular point. It does not require separate indexes or separate algorithms.
 
 ## Guardrail Records
 
 Each guardrail contains:
 
 - An ID.
-- A stage.
+- A scope.
 - A category.
 - A description.
 - One or more examples.
@@ -23,7 +23,7 @@ Only the examples are converted into vectors. The remaining fields are stored as
 ## Preparing the Guardrails
 
 1. Check that IDs are unique.
-2. Check that the stage, action, and threshold are valid.
+2. Check that the scope, action, and threshold are valid.
 3. Check that every guardrail has at least one example.
 4. Convert each example into a vector.
 5. Store the vector with its guardrail metadata in one index.
@@ -61,9 +61,9 @@ If the text cannot be checked completely, return `INDETERMINATE`. Do not treat i
 
 ## Finding Matches
 
-Use the same process for every stage:
+Use the same process for every scope:
 
-1. Select guardrails whose `stage` matches the current evaluation stage.
+1. Select guardrails whose `scope` matches the current evaluation scope.
 2. Compare every text view with every example in each selected guardrail.
 3. Keep the closest distance found for each guardrail.
 4. Match the guardrail when that distance is equal to or lower than its threshold.
@@ -94,8 +94,8 @@ Return the final action, primary match, all other matches, distances, thresholds
 ## Evaluation Process
 
 ```text
-EVALUATE(stage, subject, context):
-    select guardrails for the stage
+EVALUATE(scope, subject, context):
+    select guardrails for the scope
     create complete whole-text and chunk views
 
     if the views cannot be created or searched:

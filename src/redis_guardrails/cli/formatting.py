@@ -18,14 +18,14 @@ def format_load_report(report: LoadReport) -> str:
 def format_benchmark_report(cases: list[CaseResult], performance: PerformanceSummary) -> str:
     lines: list[str] = []
 
-    header = f"{'Case':<32} {'Stage':<7} {'Category':<21} {'Expected':<9} {'Actual':<7} Result"
+    header = f"{'Case':<32} {'Scope':<7} {'Category':<21} {'Expected':<9} {'Actual':<7} Result"
     lines.append(header)
     lines.append("-" * len(header))
     for case in cases:
         actual = case.result.action if case.result.action is not None else "n/a"
         category_display = case.category if case.category is not None else "n/a"
         lines.append(
-            f"{case.case_id:<32} {case.stage:<7} {category_display:<21} "
+            f"{case.case_id:<32} {case.scope:<7} {category_display:<21} "
             f"{case.expected_action:<9} {actual:<7} {classify(case)}"
         )
 
@@ -74,7 +74,7 @@ def format_benchmark_report(cases: list[CaseResult], performance: PerformanceSum
 
 
 def format_evaluation_result(result: EvaluationResult, trace: bool = False) -> str:
-    lines = [f"Evaluation {result.evaluation_id} ({result.stage}) -> {result.status}"]
+    lines = [f"Evaluation {result.evaluation_id} ({result.scope}) -> {result.status}"]
 
     if result.status == "INDETERMINATE":
         lines.append("Action: n/a — evaluation could not complete safely; treat as not allowed")

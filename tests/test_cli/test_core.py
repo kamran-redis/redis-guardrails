@@ -31,7 +31,7 @@ def service(store):
 
 def _guardrail_dict(**overrides) -> dict:
     defaults = dict(
-        id="g-1", stage="input", category="cat", description="d",
+        id="g-1", scope="input", category="cat", description="d",
         examples=["ex"], action="BLOCK", match_threshold=0.5,
     )
     defaults.update(overrides)
@@ -86,7 +86,7 @@ def test_load_collects_malformed_record_as_type_error(service, tmp_path):
     assert report.errors[0].guardrail_id == "g-1"
 
 
-def test_evaluate_prompt_delegates_to_service_for_input_stage(service, store):
+def test_evaluate_prompt_delegates_to_service_for_input_scope(service, store):
     result = evaluate_prompt(service, "input", "hello")
     assert result.status == "COMPLETED"
 
@@ -96,7 +96,7 @@ def test_evaluate_prompt_always_populates_matches(service, store):
     assert result.matches is not None
 
 
-def test_evaluate_prompt_passes_context_through_for_output_stage(service, store):
+def test_evaluate_prompt_passes_context_through_for_output_scope(service, store):
     store.matches_by_text["User: what is my balance?\nAssistant: it is obvious"] = [
         Match(rule_id="g-1", category="cat", action="FLAG", distance=0.1, threshold=0.5,
               chunk_id="output-0", evaluated_text="User: what is my balance?\nAssistant: it is obvious")
@@ -107,7 +107,7 @@ def test_evaluate_prompt_passes_context_through_for_output_stage(service, store)
 
 def _eval_result(**overrides) -> EvaluationResult:
     defaults = dict(
-        evaluation_id="eval-1", stage="input", status="COMPLETED", action="BLOCK",
+        evaluation_id="eval-1", scope="input", status="COMPLETED", action="BLOCK",
         primary_match=None, matches=None, chunks=None,
         performance=PerformanceInfo(embedding_ms=1.0, search_ms=2.0, total_ms=3.0),
     )
@@ -117,7 +117,7 @@ def _eval_result(**overrides) -> EvaluationResult:
 
 def _case_result(**overrides) -> CaseResult:
     defaults = dict(
-        case_id="c-1", stage="input", category="cat", expected_action="BLOCK", result=_eval_result()
+        case_id="c-1", scope="input", category="cat", expected_action="BLOCK", result=_eval_result()
     )
     defaults.update(overrides)
     return CaseResult(**defaults)
@@ -204,8 +204,8 @@ def test_run_benchmark_evaluates_input_and_output_cases(tmp_path):
     ]
 
     path = _write_json(tmp_path, "testdata.json", [
-        {"id": "case-1", "stage": "input", "text": "bad text", "category": "cat", "action": "BLOCK"},
-        {"id": "case-2", "stage": "output", "text": "resp", "context": "req", "category": "cat", "action": "ALLOW"},
+        {"id": "case-1", "scope": "input", "text": "bad text", "category": "cat", "action": "BLOCK"},
+        {"id": "case-2", "scope": "output", "text": "resp", "context": "req", "category": "cat", "action": "ALLOW"},
     ])
 
     results = run_benchmark(service, path)
@@ -226,7 +226,7 @@ def test_run_benchmark_passes_chunking_overrides_through(tmp_path):
     store = FakeStore()
     service = GuardrailService(store)
     path = _write_json(tmp_path, "testdata.json", [
-        {"id": "case-1", "stage": "input", "text": "word " * 60, "category": "cat", "action": "ALLOW"},
+        {"id": "case-1", "scope": "input", "text": "word " * 60, "category": "cat", "action": "ALLOW"},
     ])
 
     run_benchmark(service, path, max_chars=100, overlap_chars=10)

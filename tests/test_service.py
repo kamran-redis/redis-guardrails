@@ -18,7 +18,7 @@ def service(store):
 
 def _guardrail(**overrides) -> Guardrail:
     defaults = dict(
-        id="g-1", stage="input", category="cat", description="d",
+        id="g-1", scope="input", category="cat", description="d",
         examples=["ex"], action="BLOCK", match_threshold=0.5,
     )
     defaults.update(overrides)
@@ -99,12 +99,12 @@ def test_evaluate_output_embeds_the_prefixed_text_not_the_raw_text(service, stor
     assert store.embedded_texts == ["User: what is my balance?\nAssistant: it is obvious"]
 
 
-def test_evaluate_with_context_works_on_any_stage_name(service, store):
+def test_evaluate_with_context_works_on_any_scope_name(service, store):
     store.matches_by_text["User: prior turn\nAssistant: current text"] = [
         Match(rule_id="g-1", category="cat", action="FLAG", distance=0.1, threshold=0.5,
-              chunk_id="custom-stage-0", evaluated_text="User: prior turn\nAssistant: current text")
+              chunk_id="custom-scope-0", evaluated_text="User: prior turn\nAssistant: current text")
     ]
-    result = service.evaluate("custom-stage", "current text", context="prior turn")
+    result = service.evaluate("custom-scope", "current text", context="prior turn")
     assert result.action == "FLAG"
 
 

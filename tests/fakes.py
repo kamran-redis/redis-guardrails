@@ -72,14 +72,14 @@ class FakeStore:
     def get(self, guardrail_id: str) -> Guardrail | None:
         return self._guardrails.get(guardrail_id)
 
-    def list(self, stage=None) -> list[Guardrail]:
+    def list(self, scope=None) -> list[Guardrail]:
         values = list(self._guardrails.values())
-        return [g for g in values if stage is None or g.stage == stage]
+        return [g for g in values if scope is None or g.scope == scope]
 
-    def known_stages(self) -> list[str]:
-        # Mirrors GuardrailStore's _DEFAULT_STAGES union: "input"/"output"
+    def known_scopes(self) -> list[str]:
+        # Mirrors GuardrailStore's _DEFAULT_SCOPES union: "input"/"output"
         # are always known, regardless of whether any guardrail exists yet.
-        return sorted({g.stage for g in self._guardrails.values()} | {"input", "output"})
+        return sorted({g.scope for g in self._guardrails.values()} | {"input", "output"})
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         self.embedded_texts.extend(texts)
@@ -87,7 +87,7 @@ class FakeStore:
             raise self.raise_on_embed
         return [[0.0] for _ in texts]
 
-    def search(self, vector, chunk: Chunk, stage) -> list[Match]:
+    def search(self, vector, chunk: Chunk, scope) -> list[Match]:
         if self.raise_on_search is not None:
             raise self.raise_on_search
         return self.matches_by_text.get(chunk.evaluated_text, [])

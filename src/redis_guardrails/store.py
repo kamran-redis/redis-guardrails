@@ -13,51 +13,51 @@ from redis_guardrails.errors import (
     InvalidGuardrailError,
     SearchError,
 )
-from redis_guardrails.models import Chunk, Guardrail, Match, Stage
+from redis_guardrails.models import Chunk, Guardrail, Match, Scope
 
 _MAX_K = 100
-_STAGES_REGISTRY_KEY = "guardrails:stages"
-_DEFAULT_STAGES = {"input", "output"}
+_SCOPES_REGISTRY_KEY = "guardrails:scopes"
+_DEFAULT_SCOPES = {"input", "output"}
 
 
-def _router_name(stage: str) -> str:
-    return f"guardrails-{stage}"
+def _router_name(scope: str) -> str:
+    return f"guardrails-{scope}"
 
 
 class GuardrailStore:
     def __init__(self, redis_url: str, vectorizer: BaseVectorizer, overwrite: bool = False):
         self._redis_url = redis_url
         self._vectorizer = vectorizer
-        stages = self._read_known_stages(redis_url) | _DEFAULT_STAGES
+        scopes = self._read_known_scopes(redis_url) | _DEFAULT_SCOPES
         self._routers: dict[str, SemanticRouter] = {
-            stage: self._attach_or_create(_router_name(stage), redis_url, vectorizer, overwrite)
-            for stage in stages
+            scope: self._attach_or_create(_router_name(scope), redis_url, vectorizer, overwrite)
+            for scope in scopes
         }
 
     @staticmethod
-    def _read_known_stages(redis_url: str) -> set[str]:
-        """Which stages have ever had a guardrail added, per the registry SET.
+    def _read_known_scopes(redis_url: str) -> set[str]:
+        """Which scopes have ever had a guardrail added, per the registry SET.
 
         Empty on a fresh Redis (or one that predates this registry). Callers
-        union this with _DEFAULT_STAGES (not "or" -- a non-empty registry
+        union this with _DEFAULT_SCOPES (not "or" -- a non-empty registry
         must never suppress "input"/"output", since their Redis indices can
-        still hold real data even if those two stages were never explicitly
+        still hold real data even if those two scopes were never explicitly
         written into the registry themselves) so existing input/output-only
         deployments keep working identically regardless of what custom
-        stages have been registered elsewhere.
+        scopes have been registered elsewhere.
         """
         client = Redis.from_url(redis_url)
         try:
-            raw = client.smembers(_STAGES_REGISTRY_KEY)
+            raw = client.smembers(_SCOPES_REGISTRY_KEY)
         finally:
             client.close()
         return {s.decode() if isinstance(s, bytes) else s for s in raw}
 
     @staticmethod
-    def _register_stage(redis_url: str, stage: str) -> None:
+    def _register_scope(redis_url: str, scope: str) -> None:
         client = Redis.from_url(redis_url)
         try:
-            client.sadd(_STAGES_REGISTRY_KEY, stage)
+            client.sadd(_SCOPES_REGISTRY_KEY, scope)
         finally:
             client.close()
 
@@ -170,37 +170,37 @@ class GuardrailStore:
             return []
         return [Route(**route) for route in stored.get("routes", [])]
 
-    def _ensure_router(self, stage: str) -> None:
-        """Lazily create (and register) a router for a stage never seen before.
+    def _ensure_router(self, scope: str) -> None:
+        """Lazily create (and register) a router for a scope never seen before.
 
-        Shared by add() and update(): both can be handed a stage that has
+        Shared by add() and update(): both can be handed a scope that has
         never had a guardrail in it yet -- add() via a brand-new guardrail,
-        update() via moving an existing guardrail onto a new stage name --
+        update() via moving an existing guardrail onto a new scope name --
         and in either case self._routers must gain a live entry for it
         before anything tries to look it up with [] rather than .get().
         """
-        if stage not in self._routers:
+        if scope not in self._routers:
             for existing in self._routers:
-                if existing.startswith(stage) or stage.startswith(existing):
+                if existing.startswith(scope) or scope.startswith(existing):
                     raise InvalidGuardrailError(
-                        f"stage {stage!r} conflicts with existing stage {existing!r}: "
+                        f"scope {scope!r} conflicts with existing scope {existing!r}: "
                         "one name is a prefix of the other, which would make their "
                         "Redis index key prefixes overlap"
                     )
-            self._routers[stage] = self._attach_or_create(
-                _router_name(stage), self._redis_url, self._vectorizer, overwrite=False
+            self._routers[scope] = self._attach_or_create(
+                _router_name(scope), self._redis_url, self._vectorizer, overwrite=False
             )
-            self._register_stage(self._redis_url, stage)
+            self._register_scope(self._redis_url, scope)
 
-    def known_stages(self) -> list[str]:
+    def known_scopes(self) -> list[str]:
         return sorted(self._routers)
 
     def add(self, guardrail: Guardrail) -> None:
         if self.get(guardrail.id) is not None:
             raise DuplicateGuardrailError(guardrail.id)
-        self._ensure_router(guardrail.stage)
+        self._ensure_router(guardrail.scope)
         try:
-            self._routers[guardrail.stage].add_route(self._to_route(guardrail))
+            self._routers[guardrail.scope].add_route(self._to_route(guardrail))
         except Exception as exc:
             raise SearchError(f"failed to add guardrail {guardrail.id!r}: {exc}") from exc
 
@@ -209,12 +209,12 @@ class GuardrailStore:
         if existing is None:
             raise GuardrailNotFoundError(guardrail.id)
 
-        old_router = self._routers[existing.stage]
+        old_router = self._routers[existing.scope]
         old_route = self._to_route(existing)
         old_router.remove_route(guardrail.id)
         try:
-            self._ensure_router(guardrail.stage)
-            self._routers[guardrail.stage].add_route(self._to_route(guardrail))
+            self._ensure_router(guardrail.scope)
+            self._routers[guardrail.scope].add_route(self._to_route(guardrail))
         except Exception as exc:
             old_router.add_route(old_route)  # best-effort rollback
             raise SearchError(f"failed to update guardrail {guardrail.id!r}: {exc}") from exc
@@ -223,20 +223,20 @@ class GuardrailStore:
         existing = self.get(guardrail_id)
         if existing is None:
             raise GuardrailNotFoundError(guardrail_id)
-        self._routers[existing.stage].remove_route(guardrail_id)
+        self._routers[existing.scope].remove_route(guardrail_id)
 
     def get(self, guardrail_id: str) -> Guardrail | None:
-        for stage, router in self._routers.items():
+        for scope, router in self._routers.items():
             route = router.get(guardrail_id)
             if route is None:
                 continue
-            return self._to_guardrail(stage, router, route)
+            return self._to_guardrail(scope, router, route)
         return None
 
-    def list(self, stage: Stage | None = None) -> list[Guardrail]:
-        stages = [stage] if stage is not None else list(self._routers)
+    def list(self, scope: Scope | None = None) -> list[Guardrail]:
+        scopes = [scope] if scope is not None else list(self._routers)
         result: list[Guardrail] = []
-        for s in stages:
+        for s in scopes:
             router = self._routers.get(s)
             if router is None:
                 continue
@@ -244,11 +244,11 @@ class GuardrailStore:
                 result.append(self._to_guardrail(s, router, route))
         return result
 
-    def _to_guardrail(self, stage: Stage, router: SemanticRouter, route: Route) -> Guardrail:
+    def _to_guardrail(self, scope: Scope, router: SemanticRouter, route: Route) -> Guardrail:
         references = router.get_route_references(route_name=route.name)
         return Guardrail(
             id=route.name,
-            stage=stage,
+            scope=scope,
             category=route.metadata["category"],
             description=route.metadata["description"],
             examples=[ref["reference"] for ref in references],
@@ -314,10 +314,10 @@ class GuardrailStore:
                     "produce an embedding covering only part of it"
                 )
 
-    def search(self, vector: list[float], chunk: Chunk, stage: Stage) -> list[Match]:
-        router = self._routers.get(stage)
+    def search(self, vector: list[float], chunk: Chunk, scope: Scope) -> list[Match]:
+        router = self._routers.get(scope)
         if router is None or not router.routes:
-            raise SearchError(f"no guardrails configured for stage {stage!r}")
+            raise SearchError(f"no guardrails configured for scope {scope!r}")
 
         try:
             # No distance_threshold kwarg here: route_many's distance_threshold
@@ -336,7 +336,7 @@ class GuardrailStore:
                 aggregation_method=DistanceAggregationMethod.min,
             )
         except Exception as exc:
-            raise SearchError(f"search failed for stage {stage!r}: {exc}") from exc
+            raise SearchError(f"search failed for scope {scope!r}: {exc}") from exc
 
         matches: list[Match] = []
         for route_match in route_matches:

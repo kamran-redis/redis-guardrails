@@ -32,11 +32,11 @@
 <h2>Results</h2>
 <div class="panel">
   <table>
-    <thead><tr><th>Case</th><th>Stage</th><th>Category</th><th>Expected</th><th>Actual</th><th>Result</th></tr></thead>
+    <thead><tr><th>Case</th><th>Scope</th><th>Category</th><th>Expected</th><th>Actual</th><th>Result</th></tr></thead>
     <tbody>
       {% for case in cases %}
       <tr>
-        <td class="mono">{{ case.case_id }}</td><td>{{ case.stage }}</td><td>{{ case.category or "n/a" }}</td>
+        <td class="mono">{{ case.case_id }}</td><td>{{ case.scope }}</td><td>{{ case.category or "n/a" }}</td>
         <td><span class="badge {{ case.expected_action }}">{{ case.expected_action }}</span></td>
         <td>{% if case.result.action %}<span class="badge {{ case.result.action }}">{{ case.result.action }}</span>{% else %}n/a{% endif %}</td>
         <td><span class="badge {{ classify(case) }}">{{ classify(case).replace("_", " ") }}</span></td>

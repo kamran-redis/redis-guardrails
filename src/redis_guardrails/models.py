@@ -4,7 +4,7 @@ from typing import Literal
 
 from redis_guardrails.errors import InvalidGuardrailError
 
-Stage = str
+Scope = str
 Action = Literal["ALLOW", "FLAG", "BLOCK"]
 
 _VALID_ACTIONS = {"ALLOW", "FLAG", "BLOCK"}
@@ -14,20 +14,20 @@ _VALID_ACTIONS = {"ALLOW", "FLAG", "BLOCK"}
 # _distance_threshold_filter). An ID containing a character like an
 # apostrophe breaks that filter's syntax -- add_guardrail succeeds (no
 # error), but every subsequent evaluate() call on that
-# stage then raises internally and gets translated to INDETERMINATE forever
+# scope then raises internally and gets translated to INDETERMINATE forever
 # (route_config is persisted, so it survives a process restart). Restricting
 # IDs to a safe character set up front prevents that silent, permanent
 # outage. This also naturally rejects empty/whitespace-only IDs (which
 # otherwise raise a raw SearchError wrapping a pydantic validation error
 # instead of InvalidGuardrailError).
 _VALID_ID_PATTERN = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
-_VALID_STAGE_PATTERN = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
+_VALID_SCOPE_PATTERN = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
 
 
 @dataclass
 class Guardrail:
     id: str
-    stage: Stage
+    scope: Scope
     category: str
     description: str
     examples: list[str]
@@ -42,10 +42,10 @@ def validate_guardrail(guardrail: Guardrail) -> None:
             f"{_VALID_ID_PATTERN.pattern!r} (letters, digits, '.', '_', ':', "
             "'-', 1-128 characters)"
         )
-    if not _VALID_STAGE_PATTERN.match(guardrail.stage):
+    if not _VALID_SCOPE_PATTERN.match(guardrail.scope):
         raise InvalidGuardrailError(
-            f"guardrail {guardrail.id!r} has invalid stage {guardrail.stage!r}; "
-            f"must match {_VALID_STAGE_PATTERN.pattern!r} (letters, digits, '.', '_', ':', "
+            f"guardrail {guardrail.id!r} has invalid scope {guardrail.scope!r}; "
+            f"must match {_VALID_SCOPE_PATTERN.pattern!r} (letters, digits, '.', '_', ':', "
             "'-', 1-64 characters)"
         )
     if guardrail.action not in _VALID_ACTIONS:
@@ -67,7 +67,7 @@ def validate_guardrail(guardrail: Guardrail) -> None:
 @dataclass
 class Chunk:
     id: str
-    source: Stage
+    source: Scope
     start_character: int
     end_character: int
     text: str
@@ -102,7 +102,7 @@ class PerformanceInfo:
 @dataclass
 class EvaluationResult:
     evaluation_id: str
-    stage: Stage
+    scope: Scope
     status: Literal["COMPLETED", "INDETERMINATE"]
     action: Action | None
     primary_match: Match | None

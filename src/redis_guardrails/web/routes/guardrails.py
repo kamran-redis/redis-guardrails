@@ -5,7 +5,7 @@ from fastapi.responses import RedirectResponse
 
 from redis_guardrails import GuardrailService
 from redis_guardrails.errors import DuplicateGuardrailError, GuardrailNotFoundError, InvalidGuardrailError
-from redis_guardrails.models import Action, Guardrail, Stage
+from redis_guardrails.models import Action, Guardrail, Scope
 from redis_guardrails.web.deps import get_service
 from redis_guardrails.web.templating import templates
 
@@ -19,15 +19,15 @@ def _parse_examples(raw: str) -> list[str]:
 @router.get("")
 def list_guardrails(
     request: Request,
-    stage: Stage | None = Query(default=None),
+    scope: Scope | None = Query(default=None),
     flash: str | None = Query(default=None),
     service: GuardrailService = Depends(get_service),
 ):
-    guardrails = service.list_guardrails(stage=stage)
+    guardrails = service.list_guardrails(scope=scope)
     return templates.TemplateResponse(
         request,
         "guardrails/list.html",
-        {"guardrails": guardrails, "stage": stage, "flash": flash, "stages": service.known_stages()},
+        {"guardrails": guardrails, "scope": scope, "flash": flash, "scopes": service.known_scopes()},
     )
 
 
@@ -36,7 +36,7 @@ def new_guardrail_form(request: Request, service: GuardrailService = Depends(get
     return templates.TemplateResponse(
         request,
         "guardrails/form.html",
-        {"mode": "create", "guardrail": None, "error": None, "stages": service.known_stages()},
+        {"mode": "create", "guardrail": None, "error": None, "scopes": service.known_scopes()},
     )
 
 
@@ -44,7 +44,7 @@ def new_guardrail_form(request: Request, service: GuardrailService = Depends(get
 def create_guardrail(
     request: Request,
     guardrail_id: str = Form(..., alias="id"),
-    stage: Stage = Form(...),
+    scope: Scope = Form(...),
     category: str = Form(...),
     description: str = Form(...),
     examples: str = Form(...),
@@ -53,7 +53,7 @@ def create_guardrail(
     service: GuardrailService = Depends(get_service),
 ):
     guardrail = Guardrail(
-        id=guardrail_id, stage=stage, category=category, description=description,
+        id=guardrail_id, scope=scope, category=category, description=description,
         examples=_parse_examples(examples), action=action, match_threshold=match_threshold,
     )
     try:
@@ -62,7 +62,7 @@ def create_guardrail(
         return templates.TemplateResponse(
             request,
             "guardrails/form.html",
-            {"mode": "create", "guardrail": guardrail, "error": str(exc), "stages": service.known_stages()},
+            {"mode": "create", "guardrail": guardrail, "error": str(exc), "scopes": service.known_scopes()},
             status_code=400,
         )
     return RedirectResponse(url=f"/guardrails/{guardrail.id}", status_code=303)
@@ -90,7 +90,7 @@ def edit_guardrail_form(
     return templates.TemplateResponse(
         request,
         "guardrails/form.html",
-        {"mode": "edit", "guardrail": guardrail, "error": None, "stages": service.known_stages()},
+        {"mode": "edit", "guardrail": guardrail, "error": None, "scopes": service.known_scopes()},
     )
 
 
@@ -98,7 +98,7 @@ def edit_guardrail_form(
 def update_guardrail_route(
     request: Request,
     guardrail_id: str,
-    stage: Stage = Form(...),
+    scope: Scope = Form(...),
     category: str = Form(...),
     description: str = Form(...),
     examples: str = Form(...),
@@ -109,7 +109,7 @@ def update_guardrail_route(
     # guardrail_id always comes from the URL path, never the form body —
     # prevents a crafted request from renaming a different guardrail.
     guardrail = Guardrail(
-        id=guardrail_id, stage=stage, category=category, description=description,
+        id=guardrail_id, scope=scope, category=category, description=description,
         examples=_parse_examples(examples), action=action, match_threshold=match_threshold,
     )
     try:
@@ -118,7 +118,7 @@ def update_guardrail_route(
         return templates.TemplateResponse(
             request,
             "guardrails/form.html",
-            {"mode": "edit", "guardrail": guardrail, "error": str(exc), "stages": service.known_stages()},
+            {"mode": "edit", "guardrail": guardrail, "error": str(exc), "scopes": service.known_scopes()},
             status_code=400,
         )
     return RedirectResponse(url=f"/guardrails/{guardrail.id}", status_code=303)

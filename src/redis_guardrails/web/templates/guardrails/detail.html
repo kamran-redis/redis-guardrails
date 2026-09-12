@@ -3,7 +3,7 @@
 {% block content %}
 <h1>{{ guardrail.id }}</h1>
 <div class="panel">
-  <p><span class="badge {{ guardrail.action }}">{{ guardrail.action }}</span> on the {{ guardrail.stage }} stage</p>
+  <p><span class="badge {{ guardrail.action }}">{{ guardrail.action }}</span> on the {{ guardrail.scope }} scope</p>
   <p><strong>Category:</strong> {{ guardrail.category }}</p>
   <p><strong>Description:</strong> {{ guardrail.description }}</p>
   <p><strong>Match threshold:</strong> <span class="mono">{{ guardrail.match_threshold }}</span></p>

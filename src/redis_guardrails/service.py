@@ -14,7 +14,7 @@ from redis_guardrails.models import (
     Guardrail,
     Match,
     PerformanceInfo,
-    Stage,
+    Scope,
     validate_guardrail,
 )
 from redis_guardrails.store import GuardrailStore
@@ -43,15 +43,15 @@ class GuardrailService:
             raise GuardrailNotFoundError(guardrail_id)
         return guardrail
 
-    def list_guardrails(self, stage: Stage | None = None) -> list[Guardrail]:
-        return self._store.list(stage)
+    def list_guardrails(self, scope: Scope | None = None) -> list[Guardrail]:
+        return self._store.list(scope)
 
-    def known_stages(self) -> list[str]:
-        return self._store.known_stages()
+    def known_scopes(self) -> list[str]:
+        return self._store.known_scopes()
 
     def evaluate(
         self,
-        stage: str,
+        scope: str,
         text: str,
         context: str | None = None,
         include_trace: bool = False,
@@ -61,7 +61,7 @@ class GuardrailService:
     ) -> EvaluationResult:
         prefix = f"User: {context}\nAssistant: " if context is not None else ""
         return self._evaluate(
-            stage=stage,
+            scope=scope,
             text=text,
             prefix=prefix,
             include_trace=include_trace,
@@ -73,7 +73,7 @@ class GuardrailService:
     def _evaluate(
         self,
         *,
-        stage: Stage,
+        scope: Scope,
         text: str,
         prefix: str,
         include_trace: bool,
@@ -96,7 +96,7 @@ class GuardrailService:
             chunk_kwargs["max_chunks"] = max_chunks
 
         try:
-            chunks = chunk_text(text, source=stage, prefix=prefix, **chunk_kwargs)
+            chunks = chunk_text(text, source=scope, prefix=prefix, **chunk_kwargs)
 
             embedding_start = time.perf_counter()
             vectors = self._store.embed([c.evaluated_text for c in chunks])
@@ -105,13 +105,13 @@ class GuardrailService:
             search_start = time.perf_counter()
             matches: list[Match] = []
             for chunk, vector in zip(chunks, vectors):
-                matches.extend(self._store.search(vector, chunk, stage))
+                matches.extend(self._store.search(vector, chunk, scope))
             search_ms = (time.perf_counter() - search_start) * 1000
         except _INDETERMINATE_ERRORS:
             total_ms = (time.perf_counter() - start) * 1000
             return EvaluationResult(
                 evaluation_id=evaluation_id,
-                stage=stage,
+                scope=scope,
                 status="INDETERMINATE",
                 action=None,
                 primary_match=None,
@@ -125,7 +125,7 @@ class GuardrailService:
 
         return EvaluationResult(
             evaluation_id=evaluation_id,
-            stage=stage,
+            scope=scope,
             status="COMPLETED",
             action=decision.action,
             primary_match=decision.primary_match,

@@ -7,7 +7,7 @@ from redis_guardrails.models import Guardrail, validate_guardrail
 def _guardrail(**overrides) -> Guardrail:
     defaults = dict(
         id="test-001",
-        stage="input",
+        scope="input",
         category="test_category",
         description="a test guardrail",
         examples=["example one"],
@@ -22,18 +22,18 @@ def test_valid_guardrail_passes_validation():
     validate_guardrail(_guardrail())  # must not raise
 
 
-def test_stage_with_unsafe_characters_raises():
+def test_scope_with_unsafe_characters_raises():
     with pytest.raises(InvalidGuardrailError):
-        validate_guardrail(_guardrail(stage="bad stage!"))
+        validate_guardrail(_guardrail(scope="bad scope!"))
 
 
-def test_empty_stage_raises():
+def test_empty_scope_raises():
     with pytest.raises(InvalidGuardrailError):
-        validate_guardrail(_guardrail(stage=""))
+        validate_guardrail(_guardrail(scope=""))
 
 
-def test_novel_stage_name_passes_validation():
-    validate_guardrail(_guardrail(stage="input2"))  # must not raise
+def test_novel_scope_name_passes_validation():
+    validate_guardrail(_guardrail(scope="input2"))  # must not raise
 
 
 def test_invalid_action_raises():

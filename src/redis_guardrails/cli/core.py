@@ -8,7 +8,7 @@ from redisvl.utils.vectorize import HFTextVectorizer
 
 from redis_guardrails import Guardrail, GuardrailService, GuardrailStore
 from redis_guardrails.errors import GuardrailError
-from redis_guardrails.models import Action, EvaluationResult, Stage
+from redis_guardrails.models import Action, EvaluationResult, Scope
 
 DEFAULT_REDIS_URL = "redis://localhost:6379"
 DEFAULT_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
@@ -69,7 +69,7 @@ def load_guardrails_from_file(service: GuardrailService, path: Path) -> LoadRepo
 
 def evaluate_prompt(
     service: GuardrailService,
-    stage: str,
+    scope: str,
     text: str,
     context: str | None = None,
     max_chars: int | None = None,
@@ -77,7 +77,7 @@ def evaluate_prompt(
     max_chunks: int | None = None,
 ) -> EvaluationResult:
     return service.evaluate(
-        stage,
+        scope,
         text,
         context=context,
         include_trace=True,
@@ -90,7 +90,7 @@ def evaluate_prompt(
 @dataclass
 class CaseResult:
     case_id: str
-    stage: Stage
+    scope: Scope
     category: str | None
     expected_action: Action
     result: EvaluationResult
@@ -111,13 +111,13 @@ def run_benchmark(
     results: list[CaseResult] = []
     for case in cases:
         result = service.evaluate(
-            case["stage"], case["text"], context=case.get("context"),
+            case["scope"], case["text"], context=case.get("context"),
             include_trace=True, **chunk_overrides,
         )
         results.append(
             CaseResult(
                 case_id=case["id"],
-                stage=case["stage"],
+                scope=case["scope"],
                 category=case["category"],
                 expected_action=case["action"],
                 result=result,

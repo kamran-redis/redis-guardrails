@@ -1,7 +1,7 @@
 [
   {
     "id": "prompt-injection-input-001",
-    "stage": "input",
+    "scope": "input",
     "category": "prompt_injection",
     "description": "Attempts to override or reveal system instructions.",
     "examples": [
@@ -13,7 +13,7 @@
   },
   {
     "id": "suspicious-activity-input-001",
-    "stage": "input",
+    "scope": "input",
     "category": "suspicious_activity",
     "description": "Requests that appear to facilitate fraud, unauthorised access, or evasion of financial controls.",
     "examples": [
@@ -25,7 +25,7 @@
   },
   {
     "id": "vulnerability-input-001",
-    "stage": "input",
+    "scope": "input",
     "category": "vulnerability",
     "description": "Statements indicating that a customer may need additional care or support.",
     "examples": [
@@ -37,7 +37,7 @@
   },
   {
     "id": "hallucination-output-001",
-    "stage": "output",
+    "scope": "output",
     "category": "hallucination",
     "description": "Provides unsupported financial facts or claims that an action occurred without evidence.",
     "examples": [
@@ -49,7 +49,7 @@
   },
   {
     "id": "misalignment-tone-output-001",
-    "stage": "output",
+    "scope": "output",
     "category": "misalignment_tone",
     "description": "Uses dismissive, insensitive, confusing, or unprofessional language.",
     "examples": [
@@ -61,7 +61,7 @@
   },
   {
     "id": "bias-output-001",
-    "stage": "output",
+    "scope": "output",
     "category": "bias",
     "description": "Uses stereotypes or unjustified differential treatment based on personal characteristics.",
     "examples": [
@@ -73,7 +73,7 @@
   },
   {
     "id": "advice-output-001",
-    "stage": "output",
+    "scope": "output",
     "category": "advice",
     "description": "Provides personalised financial, investment, tax, or legal recommendations outside the approved scope.",
     "examples": [
@@ -85,7 +85,7 @@
   },
   {
     "id": "harmful-content-output-001",
-    "stage": "output",
+    "scope": "output",
     "category": "harmful_content",
     "description": "Provides content that materially assists fraud, abuse, or other serious wrongdoing.",
     "examples": [
@@ -97,7 +97,7 @@
   },
   {
     "id": "goal-misalignment-output-001",
-    "stage": "output",
+    "scope": "output",
     "category": "goal_misalignment",
     "description": "Does not address the approved user request or pursues an unrelated goal.",
     "examples": [

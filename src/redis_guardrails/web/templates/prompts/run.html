@@ -10,13 +10,13 @@
     <div class="panel">
       <form class="loading-form" method="post" action="/prompts/evaluate" id="evaluate-form">
         <div class="field">
-          <label for="stage">Stage</label>
-          <select id="stage" name="stage" required>
-            {% for s in stages %}
-            <option value="{{ s }}" {% if s == stage %}selected{% endif %}>{{ s }}</option>
+          <label for="scope">Scope</label>
+          <select id="scope" name="scope" required>
+            {% for s in scopes %}
+            <option value="{{ s }}" {% if s == scope %}selected{% endif %}>{{ s }}</option>
             {% endfor %}
           </select>
-          <p class="field-hint">Different guardrails apply to different stages of the conversation. Picking an example below sets this for you.</p>
+          <p class="field-hint">Different guardrails apply to different scopes of the conversation. Picking an example below sets this for you.</p>
         </div>
         <div class="field">
           <label for="text">Message</label>
@@ -36,10 +36,10 @@
             <div class="chip-row">
               {% for c in cases %}
               <button type="button" class="chip"
-                      data-stage="{{ c.stage }}"
+                      data-scope="{{ c.scope }}"
                       data-text="{{ c.text }}"
                       data-context="{{ c.context }}"
-                      title="{{ c.file }}: {{ c.id }} ({{ c.stage }})">{{ c.stage }}: {{ c.text[:48] }}{% if c.text|length > 48 %}…{% endif %}</button>
+                      title="{{ c.file }}: {{ c.id }} ({{ c.scope }})">{{ c.scope }}: {{ c.text[:48] }}{% if c.text|length > 48 %}…{% endif %}</button>
               {% endfor %}
             </div>
             {% endfor %}
@@ -149,8 +149,8 @@
 (function () {
   document.querySelectorAll('.chip').forEach(function (chip) {
     chip.addEventListener('click', function () {
-      var stageSelect = document.getElementById('stage');
-      if (stageSelect && chip.dataset.stage) { stageSelect.value = chip.dataset.stage; }
+      var scopeSelect = document.getElementById('scope');
+      if (scopeSelect && chip.dataset.scope) { scopeSelect.value = chip.dataset.scope; }
       document.getElementById('text').value = chip.dataset.text;
       document.getElementById('context').value = chip.dataset.context || '';
     });
