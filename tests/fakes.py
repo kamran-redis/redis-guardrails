@@ -90,4 +90,4 @@ class FakeStore:
     def search(self, vector, chunk: Chunk, scope) -> list[Match]:
         if self.raise_on_search is not None:
             raise self.raise_on_search
-        return self.matches_by_text.get(chunk.evaluated_text, [])
+        return self.matches_by_text.get(chunk.text, [])

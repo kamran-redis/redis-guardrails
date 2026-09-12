@@ -8,24 +8,14 @@ def test_short_text_returns_single_chunk():
     chunks = chunk_text("hello world", source="input")
     assert len(chunks) == 1
     assert chunks[0].text == "hello world"
-    assert chunks[0].evaluated_text == "hello world"
     assert chunks[0].start_character == 0
     assert chunks[0].end_character == len("hello world")
     assert chunks[0].id == "input-0"
 
 
-def test_prefix_is_included_in_evaluated_text_but_not_text():
-    chunks = chunk_text(
-        "hello world", source="output", prefix="User: hi\nAssistant: "
-    )
-    assert len(chunks) == 1
-    assert chunks[0].text == "hello world"
-    assert chunks[0].evaluated_text == "User: hi\nAssistant: hello world"
-
-
-def test_prefix_that_exceeds_max_chars_raises():
+def test_non_positive_max_chars_raises():
     with pytest.raises(IncompleteCoverageError):
-        chunk_text("hi", source="output", prefix="x" * 100, max_chars=50)
+        chunk_text("hi", source="input", max_chars=0)
 
 
 def test_long_text_splits_with_full_coverage_and_overlap():

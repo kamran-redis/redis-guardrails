@@ -96,12 +96,12 @@ def test_evaluate_prompt_always_populates_matches(service, store):
     assert result.matches is not None
 
 
-def test_evaluate_prompt_passes_context_through_for_output_scope(service, store):
-    store.matches_by_text["User: what is my balance?\nAssistant: it is obvious"] = [
+def test_evaluate_prompt_delegates_to_service_for_output_scope(service, store):
+    store.matches_by_text["it is obvious"] = [
         Match(rule_id="g-1", category="cat", action="FLAG", distance=0.1, threshold=0.5,
-              chunk_id="output-0", evaluated_text="User: what is my balance?\nAssistant: it is obvious")
+              chunk_id="output-0", text="it is obvious")
     ]
-    result = evaluate_prompt(service, "output", "it is obvious", context="what is my balance?")
+    result = evaluate_prompt(service, "output", "it is obvious")
     assert result.action == "FLAG"
 
 
@@ -200,12 +200,12 @@ def test_run_benchmark_evaluates_input_and_output_cases(tmp_path):
     store = FakeStore()
     service = GuardrailService(store)
     store.matches_by_text["bad text"] = [
-        Match(rule_id="g-1", category="cat", action="BLOCK", distance=0.1, threshold=0.5, chunk_id="input-0", evaluated_text="bad text")
+        Match(rule_id="g-1", category="cat", action="BLOCK", distance=0.1, threshold=0.5, chunk_id="input-0", text="bad text")
     ]
 
     path = _write_json(tmp_path, "testdata.json", [
         {"id": "case-1", "scope": "input", "text": "bad text", "category": "cat", "action": "BLOCK"},
-        {"id": "case-2", "scope": "output", "text": "resp", "context": "req", "category": "cat", "action": "ALLOW"},
+        {"id": "case-2", "scope": "output", "text": "resp", "category": "cat", "action": "ALLOW"},
     ])
 
     results = run_benchmark(service, path)

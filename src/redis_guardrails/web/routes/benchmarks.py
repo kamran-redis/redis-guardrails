@@ -78,7 +78,7 @@ async def run_benchmarks(
             {"presets": presets, "cases": None, "performance": None,
              "classify": classify,
              "error": f"case is missing required key {exc} (old input/output-key "
-                      "benchmark files need migrating to text/context)"},
+                      "benchmark files need migrating to the scope/text schema)"},
             status_code=400,
         )
     except (ValueError, json.JSONDecodeError, TypeError) as exc:

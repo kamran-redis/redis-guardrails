@@ -67,7 +67,7 @@ def _handle_errors(command):
         except KeyError as exc:
             raise click.ClickException(
                 f"case is missing required key {exc} (old input/output-key benchmark "
-                "files need migrating to text/context)"
+                "files need migrating to the scope/text schema)"
             ) from exc
         except (RedisError, RuntimeError, GuardrailError, ValueError) as exc:
             raise click.ClickException(str(exc)) from exc
@@ -145,7 +145,6 @@ def benchmark_command(
 @_handle_errors
 @click.option("--scope", required=True, help="Which guardrail scope to check against (e.g. input, output).")
 @click.argument("text")
-@click.option("--context", default=None, help="Optional prior-turn context (e.g. the original request), for dialogue-shaped checks.")
 @_redis_url_option
 @_model_option
 @click.option("--trace", is_flag=True, help="Show full match and chunk detail.")
@@ -155,7 +154,6 @@ def benchmark_command(
 def evaluate_command(
     scope: str,
     text: str,
-    context: str | None,
     redis_url: str,
     model: str,
     trace: bool,
@@ -166,7 +164,7 @@ def evaluate_command(
     """Evaluate a single prompt against one guardrail scope."""
     service = build_service(redis_url=redis_url, model=model, overwrite=False)
     result = evaluate_prompt(
-        service, scope, text, context=context,
+        service, scope, text,
         max_chars=max_chars, overlap_chars=overlap_chars, max_chunks=max_chunks,
     )
     click.echo(format_evaluation_result(result, trace=trace))

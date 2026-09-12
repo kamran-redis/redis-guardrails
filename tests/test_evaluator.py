@@ -10,7 +10,7 @@ def _match(**overrides) -> Match:
         distance=0.1,
         threshold=0.5,
         chunk_id="input-0",
-        evaluated_text="some text",
+        text="some text",
     )
     defaults.update(overrides)
     return Match(**defaults)

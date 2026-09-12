@@ -49,7 +49,6 @@ def _load_test_cases() -> list[dict]:
                 "scope": scope,
                 "category": case.get("category") or "other",
                 "text": text,
-                "context": case.get("context") or "",
             })
     cases.sort(key=lambda c: (c["category"], c["file"], c["id"]))
     return cases
@@ -61,7 +60,7 @@ def evaluate_form(request: Request, service: GuardrailService = Depends(get_serv
         request,
         "prompts/run.html",
         {
-            "result": None, "scope": "", "text": "", "context": "", "error": None,
+            "result": None, "scope": "", "text": "", "error": None,
             "test_cases": _load_test_cases(), "scopes": service.known_scopes(),
         },
     )
@@ -72,7 +71,6 @@ def evaluate_submit(
     request: Request,
     scope: str = Form(...),
     text: str = Form(...),
-    context: str = Form(default=""),
     max_chars: str = Form(default=""),
     overlap_chars: str = Form(default=""),
     max_chunks: str = Form(default=""),
@@ -84,13 +82,13 @@ def evaluate_submit(
             overlap_chars=_parse_optional_int(overlap_chars),
             max_chunks=_parse_optional_int(max_chunks),
         )
-        result = evaluate_prompt(service, scope, text, context=context or None, **overrides)
+        result = evaluate_prompt(service, scope, text, **overrides)
     except ValueError as exc:
         return templates.TemplateResponse(
             request,
             "prompts/run.html",
             {
-                "error": str(exc), "result": None, "scope": scope, "text": text, "context": context,
+                "error": str(exc), "result": None, "scope": scope, "text": text,
                 "test_cases": _load_test_cases(), "scopes": service.known_scopes(),
             },
             status_code=400,
@@ -100,7 +98,7 @@ def evaluate_submit(
         request,
         "prompts/run.html",
         {
-            "result": result, "scope": scope, "text": text, "context": context, "error": None,
+            "result": result, "scope": scope, "text": text, "error": None,
             "test_cases": _load_test_cases(), "scopes": service.known_scopes(),
         },
     )

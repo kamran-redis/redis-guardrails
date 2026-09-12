@@ -22,10 +22,6 @@
           <label for="text">Message</label>
           <textarea id="text" name="text" rows="5" required>{{ text }}</textarea>
         </div>
-        <div class="field">
-          <label for="context">Context (optional — e.g. the prior turn)</label>
-          <textarea id="context" name="context" rows="3">{{ context }}</textarea>
-        </div>
 
         {% if test_cases %}
         <details class="examples-picker">
@@ -38,7 +34,6 @@
               <button type="button" class="chip"
                       data-scope="{{ c.scope }}"
                       data-text="{{ c.text }}"
-                      data-context="{{ c.context }}"
                       title="{{ c.file }}: {{ c.id }} ({{ c.scope }})">{{ c.scope }}: {{ c.text[:48] }}{% if c.text|length > 48 %}…{% endif %}</button>
               {% endfor %}
             </div>
@@ -115,7 +110,7 @@
         {% for c in result.chunks %}
         <div class="chunk">
           <p><strong class="mono">[{{ c.id }}]</strong> chars <span class="mono">{{ c.start_character }}-{{ c.end_character }}</span></p>
-          <p>Evaluated text: {{ c.evaluated_text }}</p>
+          <p>Text: {{ c.text }}</p>
           {% set chunk_matches = result.matches|selectattr("chunk_id", "equalto", c.id)|list if result.matches else [] %}
           {% if chunk_matches %}
           <ul>
@@ -152,7 +147,6 @@
       var scopeSelect = document.getElementById('scope');
       if (scopeSelect && chip.dataset.scope) { scopeSelect.value = chip.dataset.scope; }
       document.getElementById('text').value = chip.dataset.text;
-      document.getElementById('context').value = chip.dataset.context || '';
     });
   });
 })();

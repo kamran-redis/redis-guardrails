@@ -71,7 +71,6 @@ class Chunk:
     start_character: int
     end_character: int
     text: str
-    evaluated_text: str
 
 
 @dataclass
@@ -82,7 +81,7 @@ class Match:
     distance: float
     threshold: float
     chunk_id: str
-    evaluated_text: str
+    text: str
 
 
 @dataclass

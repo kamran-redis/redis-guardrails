@@ -10,18 +10,14 @@ def chunk_text(
     text: str,
     *,
     source: Scope,
-    prefix: str = "",
     max_chars: int = DEFAULT_MAX_CHARS,
     overlap_chars: int = DEFAULT_OVERLAP_CHARS,
     max_chunks: int = DEFAULT_MAX_CHUNKS,
 ) -> list[Chunk]:
-    budget = max_chars - len(prefix)
-    if budget <= 0:
-        raise IncompleteCoverageError(
-            f"prefix of length {len(prefix)} leaves no room within max_chars={max_chars}"
-        )
+    if max_chars <= 0:
+        raise IncompleteCoverageError(f"max_chars={max_chars} leaves no room for any text")
 
-    if len(text) <= budget:
+    if len(text) <= max_chars:
         return [
             Chunk(
                 id=f"{source}-0",
@@ -29,7 +25,6 @@ def chunk_text(
                 start_character=0,
                 end_character=len(text),
                 text=text,
-                evaluated_text=prefix + text,
             )
         ]
 
@@ -45,7 +40,7 @@ def chunk_text(
                 f"chunks at max_chars={max_chars}"
             )
 
-        end = min(start + budget, len(text))
+        end = min(start + max_chars, len(text))
         if end < len(text):
             # Search from max(start, covered_until), not just start: if we
             # search from `start` alone, a boundary already consumed by an
@@ -73,7 +68,6 @@ def chunk_text(
                 start_character=start,
                 end_character=end,
                 text=chunk_slice,
-                evaluated_text=prefix + chunk_slice,
             )
         )
         covered_until = max(covered_until, end)

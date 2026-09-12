@@ -351,7 +351,7 @@ class GuardrailStore:
                     distance=route_match.distance,
                     threshold=route.distance_threshold,
                     chunk_id=chunk.id,
-                    evaluated_text=chunk.evaluated_text,
+                    text=chunk.text,
                 )
             )
         return matches

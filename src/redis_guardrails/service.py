@@ -53,30 +53,7 @@ class GuardrailService:
         self,
         scope: str,
         text: str,
-        context: str | None = None,
         include_trace: bool = False,
-        max_chars: int | None = None,
-        overlap_chars: int | None = None,
-        max_chunks: int | None = None,
-    ) -> EvaluationResult:
-        prefix = f"User: {context}\nAssistant: " if context is not None else ""
-        return self._evaluate(
-            scope=scope,
-            text=text,
-            prefix=prefix,
-            include_trace=include_trace,
-            max_chars=max_chars,
-            overlap_chars=overlap_chars,
-            max_chunks=max_chunks,
-        )
-
-    def _evaluate(
-        self,
-        *,
-        scope: Scope,
-        text: str,
-        prefix: str,
-        include_trace: bool,
         max_chars: int | None = None,
         overlap_chars: int | None = None,
         max_chunks: int | None = None,
@@ -96,10 +73,10 @@ class GuardrailService:
             chunk_kwargs["max_chunks"] = max_chunks
 
         try:
-            chunks = chunk_text(text, source=scope, prefix=prefix, **chunk_kwargs)
+            chunks = chunk_text(text, source=scope, **chunk_kwargs)
 
             embedding_start = time.perf_counter()
-            vectors = self._store.embed([c.evaluated_text for c in chunks])
+            vectors = self._store.embed([c.text for c in chunks])
             embedding_ms = (time.perf_counter() - embedding_start) * 1000
 
             search_start = time.perf_counter()

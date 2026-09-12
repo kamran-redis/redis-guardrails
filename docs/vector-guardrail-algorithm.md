@@ -32,16 +32,7 @@ Test cases must not be added to this index.
 
 ## Preparing Text for Search
 
-When checking a user request, search the request itself.
-
-When checking a model response, include the approved user request as context:
-
-```text
-User: {approved request}
-Assistant: {candidate response}
-```
-
-This context is needed to detect issues such as unsuitable advice, inappropriate tone, and a response that does not address the user's goal.
+Search the text exactly as given. If a check needs prior-turn context (e.g. detecting unsuitable advice, inappropriate tone, or a response that does not address the user's goal), the caller includes it directly in the text passed to `evaluate` — the algorithm itself has no separate context input.
 
 ## Handling Long Text
 
@@ -55,7 +46,7 @@ For long text:
 4. Ensure every part of the text appears in at least one chunk.
 5. Search every chunk.
 
-When checking a long response, split only the response. Add the approved request to each response chunk and ensure the combined text fits within the model limit.
+When checking long text, split it into chunks that each fit within the model limit.
 
 If the text cannot be checked completely, return `INDETERMINATE`. Do not treat it as allowed.
 
@@ -94,7 +85,7 @@ Return the final action, primary match, all other matches, distances, thresholds
 ## Evaluation Process
 
 ```text
-EVALUATE(scope, subject, context):
+EVALUATE(scope, subject):
     select guardrails for the scope
     create complete whole-text and chunk views
 
@@ -118,14 +109,14 @@ EVALUATE(scope, subject, context):
     return MATCH, action, primary match, all matches
 ```
 
-Before generation, the subject is the user request and no context is needed. After generation, the subject is the candidate response and the context is the approved request. Both checks use the same evaluator.
+Before generation, the subject is the user request. After generation, the subject is the candidate response (with any needed prior-turn context included in its text by the caller). Both checks use the same evaluator.
 
 ## Request Flow
 
 1. Evaluate the user request.
 2. If the result is `BLOCK` or `INDETERMINATE`, stop before generation.
 3. Otherwise, generate a candidate response.
-4. Evaluate the candidate response with the approved request as context.
+4. Evaluate the candidate response, including the approved request in its text if needed.
 5. If the result is `BLOCK` or `INDETERMINATE`, withhold the response.
 6. Otherwise, return the response together with any flags.
 

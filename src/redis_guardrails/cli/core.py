@@ -71,7 +71,6 @@ def evaluate_prompt(
     service: GuardrailService,
     scope: str,
     text: str,
-    context: str | None = None,
     max_chars: int | None = None,
     overlap_chars: int | None = None,
     max_chunks: int | None = None,
@@ -79,7 +78,6 @@ def evaluate_prompt(
     return service.evaluate(
         scope,
         text,
-        context=context,
         include_trace=True,
         max_chars=max_chars,
         overlap_chars=overlap_chars,
@@ -111,7 +109,7 @@ def run_benchmark(
     results: list[CaseResult] = []
     for case in cases:
         result = service.evaluate(
-            case["scope"], case["text"], context=case.get("context"),
+            case["scope"], case["text"],
             include_trace=True, **chunk_overrides,
         )
         results.append(

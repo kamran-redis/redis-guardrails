@@ -17,7 +17,7 @@ def test_index_lists_preset_files(client, tmp_path, monkeypatch):
 def test_run_with_preset_shows_pass_fail_and_summary(client, store, tmp_path, monkeypatch):
     monkeypatch.setattr("redis_guardrails.web.routes.benchmarks.DATA_DIR", tmp_path)
     store.matches_by_text["bad text"] = [
-        Match(rule_id="g-1", category="cat", action="BLOCK", distance=0.1, threshold=0.5, chunk_id="input-0", evaluated_text="bad text")
+        Match(rule_id="g-1", category="cat", action="BLOCK", distance=0.1, threshold=0.5, chunk_id="input-0", text="bad text")
     ]
     (tmp_path / "sample.json").write_text(json.dumps([
         {"id": "case-1", "scope": "input", "text": "bad text", "category": "cat", "action": "BLOCK"},
