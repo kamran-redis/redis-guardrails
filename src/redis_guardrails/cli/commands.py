@@ -11,8 +11,7 @@ from redis_guardrails.cli.core import (
     DEFAULT_REDIS_URL,
     build_service,
     classify,
-    evaluate_prompt_input,
-    evaluate_prompt_output,
+    evaluate_prompt,
     load_guardrails_from_file,
     run_benchmark,
     summarize_performance,
@@ -137,22 +136,21 @@ def benchmark_command(
             raise SystemExit(1)
 
 
-@cli.group("evaluate")
-def evaluate_group():
-    """Evaluate a single prompt against the current guardrails."""
-
-
-@evaluate_group.command("input")
+@cli.command("evaluate")
 @_handle_errors
+@click.option("--stage", required=True, help="Which guardrail stage to check against (e.g. input, output).")
 @click.argument("text")
+@click.option("--context", default=None, help="Optional prior-turn context (e.g. the original request), for dialogue-shaped checks.")
 @_redis_url_option
 @_model_option
 @click.option("--trace", is_flag=True, help="Show full match and chunk detail.")
 @_max_chars_option
 @_overlap_chars_option
 @_max_chunks_option
-def evaluate_input_command(
+def evaluate_command(
+    stage: str,
     text: str,
+    context: str | None,
     redis_url: str,
     model: str,
     trace: bool,
@@ -160,39 +158,10 @@ def evaluate_input_command(
     overlap_chars: int | None,
     max_chunks: int | None,
 ):
-    """Evaluate a single input-stage prompt."""
+    """Evaluate a single prompt against one guardrail stage."""
     service = build_service(redis_url=redis_url, model=model, overwrite=False)
-    result = evaluate_prompt_input(
-        service, text,
-        max_chars=max_chars, overlap_chars=overlap_chars, max_chunks=max_chunks,
-    )
-    click.echo(format_evaluation_result(result, trace=trace))
-
-
-@evaluate_group.command("output")
-@_handle_errors
-@click.option("--response", "response_text", required=True, help="The candidate model response to evaluate.")
-@click.option("--request", "request_text", default=None, help="The original user request, for dialogue context.")
-@_redis_url_option
-@_model_option
-@click.option("--trace", is_flag=True, help="Show full match and chunk detail.")
-@_max_chars_option
-@_overlap_chars_option
-@_max_chunks_option
-def evaluate_output_command(
-    response_text: str,
-    request_text: str | None,
-    redis_url: str,
-    model: str,
-    trace: bool,
-    max_chars: int | None,
-    overlap_chars: int | None,
-    max_chunks: int | None,
-):
-    """Evaluate a single output-stage (model response) prompt."""
-    service = build_service(redis_url=redis_url, model=model, overwrite=False)
-    result = evaluate_prompt_output(
-        service, response_text, request_text=request_text,
+    result = evaluate_prompt(
+        service, stage, text, context=context,
         max_chars=max_chars, overlap_chars=overlap_chars, max_chunks=max_chunks,
     )
     click.echo(format_evaluation_result(result, trace=trace))
