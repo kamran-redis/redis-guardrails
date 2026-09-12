@@ -152,7 +152,7 @@ def test_list_unknown_stage_returns_empty_list_not_error(store):
 def test_search_unknown_stage_raises_search_error_not_key_error(store):
     vector = store.embed(["anything"])[0]
     chunk = Chunk(
-        id="x-0", source="x", start_character=0, end_character=8,
+        id="totally-unknown-stage-0", source="totally-unknown-stage", start_character=0, end_character=8,
         text="anything", evaluated_text="anything",
     )
     with pytest.raises(SearchError):
