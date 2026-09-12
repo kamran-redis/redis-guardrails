@@ -55,10 +55,6 @@ def _load_test_cases() -> list[dict]:
     return cases
 
 
-def _known_stages(service: GuardrailService) -> list[str]:
-    return sorted({g.stage for g in service.list_guardrails()})
-
-
 @router.get("/evaluate")
 def evaluate_form(request: Request, service: GuardrailService = Depends(get_service)):
     return templates.TemplateResponse(
@@ -66,7 +62,7 @@ def evaluate_form(request: Request, service: GuardrailService = Depends(get_serv
         "prompts/run.html",
         {
             "result": None, "stage": "", "text": "", "context": "", "error": None,
-            "test_cases": _load_test_cases(), "stages": _known_stages(service),
+            "test_cases": _load_test_cases(), "stages": service.known_stages(),
         },
     )
 
@@ -95,7 +91,7 @@ def evaluate_submit(
             "prompts/run.html",
             {
                 "error": str(exc), "result": None, "stage": stage, "text": text, "context": context,
-                "test_cases": _load_test_cases(), "stages": _known_stages(service),
+                "test_cases": _load_test_cases(), "stages": service.known_stages(),
             },
             status_code=400,
         )
@@ -105,6 +101,6 @@ def evaluate_submit(
         "prompts/run.html",
         {
             "result": result, "stage": stage, "text": text, "context": context, "error": None,
-            "test_cases": _load_test_cases(), "stages": _known_stages(service),
+            "test_cases": _load_test_cases(), "stages": service.known_stages(),
         },
     )

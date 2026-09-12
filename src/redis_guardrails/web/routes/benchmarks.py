@@ -71,7 +71,17 @@ async def run_benchmarks(
             max_chunks=_parse_optional_int(max_chunks),
         )
         cases = run_benchmark(service, path, **overrides)
-    except (ValueError, json.JSONDecodeError, KeyError, TypeError) as exc:
+    except KeyError as exc:
+        return templates.TemplateResponse(
+            request,
+            "benchmarks/index.html",
+            {"presets": presets, "cases": None, "performance": None,
+             "classify": classify,
+             "error": f"case is missing required key {exc} (old input/output-key "
+                      "benchmark files need migrating to text/context)"},
+            status_code=400,
+        )
+    except (ValueError, json.JSONDecodeError, TypeError) as exc:
         return templates.TemplateResponse(
             request,
             "benchmarks/index.html",

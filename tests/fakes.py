@@ -43,7 +43,7 @@ class FakeStore:
     """In-memory stand-in for GuardrailStore — no Redis, no embeddings.
 
     Tests configure `.matches_by_text` and `.raise_on_search`/`.raise_on_embed`
-    to control what evaluate_input/evaluate_output see, without needing a
+    to control what evaluate() sees, without needing a
     real vector search.
     """
 
@@ -75,6 +75,11 @@ class FakeStore:
     def list(self, stage=None) -> list[Guardrail]:
         values = list(self._guardrails.values())
         return [g for g in values if stage is None or g.stage == stage]
+
+    def known_stages(self) -> list[str]:
+        # Mirrors GuardrailStore's _DEFAULT_STAGES union: "input"/"output"
+        # are always known, regardless of whether any guardrail exists yet.
+        return sorted({g.stage for g in self._guardrails.values()} | {"input", "output"})
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         self.embedded_texts.extend(texts)

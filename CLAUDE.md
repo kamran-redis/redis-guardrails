@@ -6,7 +6,7 @@ See `README.md` for user-facing usage, `docs/vector-guardrail-algorithm.md` for 
 
 ## Architecture (three layers, each reusing the one below unmodified)
 
-1. **Core library** (`src/redis_guardrails/`) — `GuardrailService` (CRUD + `evaluate_input`/`evaluate_output`), `GuardrailStore` (Redis/RedisVL persistence), `models.py` (`Guardrail`, `Match`, `Chunk`, `EvaluationResult`, `Stage`, `Action`), `errors.py`, `chunking.py`, `evaluator.py`. This is the only place business logic lives.
+1. **Core library** (`src/redis_guardrails/`) — `GuardrailService` (CRUD + `evaluate`), `GuardrailStore` (Redis/RedisVL persistence), `models.py` (`Guardrail`, `Match`, `Chunk`, `EvaluationResult`, `Stage`, `Action`), `errors.py`, `chunking.py`, `evaluator.py`. This is the only place business logic lives.
 2. **CLI** (`src/redis_guardrails/cli/`) — `core.py` is a framework-agnostic layer (zero click, zero print, returns plain dataclasses) wrapping the core library; `formatting.py` is pure string presenters (zero click); `commands.py` is thin click glue. Entry point: `redis-guardrails`.
 3. **Web GUI** (`src/redis_guardrails/web/`) — FastAPI + server-rendered Jinja2 templates, launched via `redis-guardrails serve`. Routes call `cli.core` functions and `GuardrailService` directly — **never reimplement evaluation/benchmark/CRUD logic in the web layer**. `_build_app()` (routers/static/exception-handlers, no service) is split from `create_app()` (adds the service via FastAPI lifespan) specifically so tests can exercise the whole app with a `FakeStore`, no real Redis or embedding model needed.
 
@@ -15,7 +15,7 @@ When extending any layer, put logic in the lowest layer that needs it and have t
 ## Key invariants — don't casually change these
 
 - `INDETERMINATE` beats a wrong guess: if evaluation can't complete safely (embedding failure, search failure, chunk-coverage failure), the result is `status="INDETERMINATE"`, never silently `ALLOW`.
-- `EvaluationResult.matches`/`.chunks` are `None` unless the service was called with `include_trace=True`. Both `cli.core.evaluate_prompt_input/output` and `run_benchmark` always pass `include_trace=True` — display-layer trace gating (CLI's `--trace`, or "show chunks" in the GUI) is separate from whether the service *computed* the data.
+- `EvaluationResult.matches`/`.chunks` are `None` unless the service was called with `include_trace=True`. Both `cli.core.evaluate_prompt` and `run_benchmark` always pass `include_trace=True` — display-layer trace gating (CLI's `--trace`, or "show chunks" in the GUI) is separate from whether the service *computed* the data.
 - `Match.evaluated_text` already exists directly on `Match` — never re-derive it by joining `Match.chunk_id` against a `Chunk`.
 - Guardrail edit routes (web) take the guardrail id from the URL path, **never** from a form field — prevents a crafted POST from renaming a different guardrail via `{guardrail_id}/edit`.
 - Benchmark preset file selection (web) validates the submitted filename against a **live glob** of `data/*.json` before ever calling `open()` — never trust a raw path string from a form (path-traversal guard).

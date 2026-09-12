@@ -13,7 +13,7 @@ _VALID_ACTIONS = {"ALLOW", "FLAG", "BLOCK"}
 # into an internal RediSearch FILTER expression (see SemanticRouter's
 # _distance_threshold_filter). An ID containing a character like an
 # apostrophe breaks that filter's syntax -- add_guardrail succeeds (no
-# error), but every subsequent evaluate_input/evaluate_output call on that
+# error), but every subsequent evaluate() call on that
 # stage then raises internally and gets translated to INDETERMINATE forever
 # (route_config is persisted, so it survives a process restart). Restricting
 # IDs to a safe character set up front prevents that silent, permanent

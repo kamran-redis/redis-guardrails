@@ -25,6 +25,13 @@ def test_new_guardrail_form_renders(client):
     assert "New Guardrail" in response.text
 
 
+def test_new_guardrail_form_stage_datalist_is_never_empty(client):
+    response = client.get("/guardrails/new")
+    assert response.status_code == 200
+    assert "input" in response.text
+    assert "output" in response.text
+
+
 def test_create_success_redirects_to_detail(client):
     response = client.post("/guardrails/new", data=_guardrail_form(), follow_redirects=False)
     assert response.status_code == 303
@@ -102,17 +109,17 @@ def test_delete_missing_guardrail_is_a_no_op_redirect(client):
 
 def test_new_guardrail_form_suggests_existing_stages(client, store):
     store.add(Guardrail(
-        id="g-1", stage="input2", category="cat", description="d",
+        id="g-1", stage="extra-stage", category="cat", description="d",
         examples=["ex"], action="BLOCK", match_threshold=0.5,
     ))
     response = client.get("/guardrails/new")
     assert response.status_code == 200
-    assert "input2" in response.text
+    assert "extra-stage" in response.text
 
 
 def test_can_create_guardrail_on_a_novel_stage(client):
     response = client.post("/guardrails/new", data={
-        "id": "g-novel", "stage": "input2", "category": "cat", "description": "d",
+        "id": "g-novel", "stage": "extra-stage", "category": "cat", "description": "d",
         "examples": "an example", "action": "BLOCK", "match_threshold": "0.5",
     }, follow_redirects=False)
     assert response.status_code == 303
@@ -121,9 +128,9 @@ def test_can_create_guardrail_on_a_novel_stage(client):
 
 def test_list_page_shows_a_tab_for_each_stage_actually_present(client, store):
     store.add(Guardrail(
-        id="g-1", stage="input2", category="cat", description="d",
+        id="g-1", stage="extra-stage", category="cat", description="d",
         examples=["ex"], action="BLOCK", match_threshold=0.5,
     ))
     response = client.get("/guardrails")
     assert response.status_code == 200
-    assert "input2" in response.text
+    assert "extra-stage" in response.text

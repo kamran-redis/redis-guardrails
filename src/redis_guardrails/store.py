@@ -10,6 +10,7 @@ from redis_guardrails.errors import (
     EmbeddingError,
     GuardrailNotFoundError,
     IncompleteCoverageError,
+    InvalidGuardrailError,
     SearchError,
 )
 from redis_guardrails.models import Chunk, Guardrail, Match, Stage
@@ -179,10 +180,20 @@ class GuardrailStore:
         before anything tries to look it up with [] rather than .get().
         """
         if stage not in self._routers:
+            for existing in self._routers:
+                if existing.startswith(stage) or stage.startswith(existing):
+                    raise InvalidGuardrailError(
+                        f"stage {stage!r} conflicts with existing stage {existing!r}: "
+                        "one name is a prefix of the other, which would make their "
+                        "Redis index key prefixes overlap"
+                    )
             self._routers[stage] = self._attach_or_create(
                 _router_name(stage), self._redis_url, self._vectorizer, overwrite=False
             )
             self._register_stage(self._redis_url, stage)
+
+    def known_stages(self) -> list[str]:
+        return sorted(self._routers)
 
     def add(self, guardrail: Guardrail) -> None:
         if self.get(guardrail.id) is not None:
@@ -201,8 +212,8 @@ class GuardrailStore:
         old_router = self._routers[existing.stage]
         old_route = self._to_route(existing)
         old_router.remove_route(guardrail.id)
-        self._ensure_router(guardrail.stage)
         try:
+            self._ensure_router(guardrail.stage)
             self._routers[guardrail.stage].add_route(self._to_route(guardrail))
         except Exception as exc:
             old_router.add_route(old_route)  # best-effort rollback

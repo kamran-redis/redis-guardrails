@@ -44,12 +44,7 @@ def test_testdata_accuracy_meets_bar(service):
 
     for case in cases:
         total += 1
-        if case["stage"] == "input":
-            result = service.evaluate_input(case["input"])
-        else:
-            result = service.evaluate_output(
-                response_text=case["output"], request_text=case["input"]
-            )
+        result = service.evaluate(case["stage"], case["text"], context=case.get("context"))
 
         if result.action == case["action"]:
             correct_action += 1

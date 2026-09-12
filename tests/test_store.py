@@ -154,20 +154,27 @@ def test_overwrite_true_actually_clears_old_data(redis_url, allow_test_overwrite
 
 @pytest.mark.integration
 def test_add_guardrail_with_new_stage_creates_router_and_is_searchable(store):
-    guardrail = _guardrail(id="g-novel", stage="input2", examples=["a brand new stage example"])
+    guardrail = _guardrail(id="g-novel", stage="extra-stage", examples=["a brand new stage example"])
     store.add(guardrail)
 
     fetched = store.get("g-novel")
-    assert fetched.stage == "input2"
+    assert fetched.stage == "extra-stage"
 
     vector = store.embed(["a brand new stage example"])[0]
     chunk = Chunk(
-        id="input2-0", source="input2", start_character=0, end_character=10,
+        id="extra-stage-0", source="extra-stage", start_character=0, end_character=10,
         text="a brand new stage example", evaluated_text="a brand new stage example",
     )
-    matches = store.search(vector, chunk, "input2")
+    matches = store.search(vector, chunk, "extra-stage")
     assert len(matches) == 1
     assert matches[0].rule_id == "g-novel"
+
+
+@pytest.mark.integration
+def test_add_guardrail_with_prefix_colliding_stage_raises(store):
+    from redis_guardrails.errors import InvalidGuardrailError
+    with pytest.raises(InvalidGuardrailError):
+        store.add(_guardrail(id="g-colliding", stage="input2", examples=["ex"]))
 
 
 @pytest.mark.integration
@@ -189,13 +196,13 @@ def test_search_unknown_stage_raises_search_error_not_key_error(store):
 @pytest.mark.integration
 def test_second_store_instance_discovers_a_novel_stage_added_by_first(redis_url, allow_test_overwrite):
     first = GuardrailStore(redis_url=redis_url, vectorizer=HashVectorizer(), overwrite=True)
-    first.add(_guardrail(id="g-novel", stage="input2", examples=["novel stage example"]))
+    first.add(_guardrail(id="g-novel", stage="extra-stage", examples=["novel stage example"]))
 
     second = GuardrailStore(redis_url=redis_url, vectorizer=HashVectorizer(), overwrite=False)
     fetched = second.get("g-novel")
     assert fetched is not None
-    assert fetched.stage == "input2"
-    assert [g.id for g in second.list(stage="input2")] == ["g-novel"]
+    assert fetched.stage == "extra-stage"
+    assert [g.id for g in second.list(stage="extra-stage")] == ["g-novel"]
 
 
 @pytest.mark.integration

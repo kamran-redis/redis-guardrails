@@ -46,6 +46,9 @@ class GuardrailService:
     def list_guardrails(self, stage: Stage | None = None) -> list[Guardrail]:
         return self._store.list(stage)
 
+    def known_stages(self) -> list[str]:
+        return self._store.known_stages()
+
     def evaluate(
         self,
         stage: str,

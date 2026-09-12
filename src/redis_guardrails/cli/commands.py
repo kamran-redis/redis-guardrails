@@ -64,7 +64,12 @@ def _handle_errors(command):
     def wrapper(*args, **kwargs):
         try:
             return command(*args, **kwargs)
-        except (RedisError, RuntimeError, GuardrailError, KeyError, ValueError) as exc:
+        except KeyError as exc:
+            raise click.ClickException(
+                f"case is missing required key {exc} (old input/output-key benchmark "
+                "files need migrating to text/context)"
+            ) from exc
+        except (RedisError, RuntimeError, GuardrailError, ValueError) as exc:
             raise click.ClickException(str(exc)) from exc
 
     return wrapper
