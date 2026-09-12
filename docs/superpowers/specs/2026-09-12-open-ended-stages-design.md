@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed design. Supersedes one decision in
+Approved design. Supersedes one decision in
 `2026-09-10-redis-guardrails-core-api-design.md` (see "Relationship to the
 original core API design" below) — everything else in that document still
 holds.
@@ -116,9 +116,9 @@ startup. If a brand-new stage is added via the CLI while the web app is
 running, that process won't have it in `self._routers` *or* know to look —
 today's bug ("new guardrails invisible until restart") generalizes to
 "a whole new stage can be invisible until restart," which is a bigger miss
-than before. **Recommend fixing the registry-refresh gap in `BUGS.md`
-together with this change**, not after — otherwise this change ships a
-sharper version of a bug already on record.
+than before. **Decision: ship this change independently; the staleness fix
+is tracked separately in `BUGS.md` and will be picked up later**, not as
+part of this change.
 
 ## Service changes (`service.py`)
 
@@ -241,11 +241,14 @@ branch.
   old and new shapes. There is no external consumer of these files to stay
   compatible with.
 
-## Open decisions still to confirm
+## Decided (registry + staleness bug)
 
-1. Stages registry as an explicit Redis SET (recommended — version-stable,
-   doesn't depend on RediSearch introspection commands) vs. discovering
-   existing routers by scanning for `guardrails-*` indices directly.
-2. Fix the `BUGS.md` router-staleness bug together with this change
-   (recommended, since this change makes it worse) vs. ship this
-   independently and fix that bug separately later.
+- Stages registry is an explicit Redis SET (`guardrails:stages`) —
+  version-stable, doesn't depend on RediSearch introspection commands.
+- The `BUGS.md` router-staleness bug is **not** fixed as part of this
+  change. It's tracked there already and will be picked up separately;
+  this change ships knowing it makes that bug's blast radius slightly
+  bigger (a whole stage can be invisible until restart, not just a
+  guardrail within one).
+
+All open decisions are now settled. Next step: an implementation plan.
