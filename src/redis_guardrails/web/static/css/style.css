@@ -87,7 +87,7 @@ a { color: var(--color-primary); }
 .site-header nav a:hover { color: var(--color-text); }
 .site-header nav a.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
 
-main { padding: var(--space-6) var(--space-5); max-width: 1000px; margin: 0 auto; }
+main { padding: var(--space-6) var(--space-5); max-width: 1240px; margin: 0 auto; }
 
 .cards { display: flex; gap: var(--space-4); flex-wrap: wrap; }
 .card {
@@ -121,6 +121,8 @@ td.num, th.num { text-align: right; font-family: var(--font-mono); font-size: 0.
 .badge.BLOCK { background: var(--color-primary-soft); color: var(--color-primary); }
 .badge.COMPLETED { background: #e1eafc; color: #24438f; }
 .badge.INDETERMINATE { background: #e7e9ed; color: #4b5563; }
+.badge.PASS { background: #e7f3ec; color: #1d6b4a; }
+.badge.FALSE_POSITIVE, .badge.FALSE_NEGATIVE, .badge.WRONG_SEVERITY { background: var(--color-primary-soft); color: var(--color-primary); }
 
 .badge-lg {
   display: inline-flex; align-items: center; padding: 0.5rem 1rem; border-radius: var(--radius-md);
@@ -205,3 +207,51 @@ hr { border: none; border-top: 1px solid var(--color-border); margin: var(--spac
 }
 .error-page { display: flex; align-items: center; gap: var(--space-2); }
 .actions form { display: inline; }
+
+.evaluate-layout { display: grid; grid-template-columns: minmax(420px, 1fr) minmax(420px, 1.2fr); gap: var(--space-6); align-items: start; }
+.evaluate-layout .result-column { position: sticky; top: var(--space-5); }
+.evaluate-layout textarea, .evaluate-layout input:not([type="radio"]) { max-width: none; }
+@media (max-width: 860px) {
+  .evaluate-layout { grid-template-columns: 1fr; }
+  .evaluate-layout .result-column { position: static; }
+}
+
+.examples-picker { margin-bottom: var(--space-4); }
+.examples-scroll { max-height: 260px; overflow-y: auto; padding-right: var(--space-2); }
+.examples-group-label { color: var(--color-text-muted); font-size: 0.8rem; font-weight: 600; margin: var(--space-3) 0 var(--space-1); }
+.examples-group-label:first-child { margin-top: 0; }
+.chip { text-align: left; }
+
+.segmented { display: inline-flex; border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 2px; background: var(--color-bg); }
+.segmented input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.segmented label {
+  margin: 0; padding: var(--space-2) var(--space-4); border-radius: calc(var(--radius-md) - 2px);
+  font-weight: 600; font-size: 0.9rem; color: var(--color-text-muted); cursor: pointer; transition: background 0.15s ease, color 0.15s ease;
+}
+.segmented input:checked + label { background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-sm); }
+.segmented input:focus-visible + label { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+
+.chip-row { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.chip {
+  border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text-muted);
+  border-radius: 999px; padding: 0.35rem 0.85rem; font-size: 0.8rem; font-weight: 600; font: inherit;
+  cursor: pointer; transition: border-color 0.15s ease, color 0.15s ease;
+}
+.chip:hover { border-color: var(--color-primary); color: var(--color-primary); }
+
+.result-placeholder {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  min-height: 220px; color: var(--color-text-muted); border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg); padding: var(--space-6);
+}
+
+.verdict-line { font-size: 1rem; margin: var(--space-2) 0 0; }
+
+.strength {
+  margin: var(--space-3) 0 var(--space-2);
+}
+.strength-track { height: 8px; border-radius: 999px; background: var(--color-bg); overflow: hidden; }
+.strength-fill { height: 100%; border-radius: 999px; background: var(--color-primary); }
+.strength-labels { display: flex; justify-content: space-between; margin-top: var(--space-1); font-size: 0.8rem; color: var(--color-text-muted); }
+
+.field-hint { color: var(--color-text-muted); font-size: 0.85rem; margin: calc(-1 * var(--space-1)) 0 var(--space-2); }

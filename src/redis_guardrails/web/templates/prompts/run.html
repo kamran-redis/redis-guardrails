@@ -5,123 +5,167 @@
 
 {% if error %}<div class="error-banner">{{ error }}</div>{% endif %}
 
-<div class="panel">
-  {% if test_cases %}
-  <div class="field">
-    <label for="test_case_picker">Load from test data</label>
-    <select id="test_case_picker" onchange="redisGuardrailsFillFromTestCase(this)">
-      <option value="">— Select a test case —</option>
-      {% for c in test_cases %}
-      <option value="{{ c.file }}::{{ c.id }}"
-              data-stage="{{ c.stage }}"
-              data-text="{{ c.text }}"
-              data-request-text="{{ c.request_text }}">{{ c.file }}: {{ c.id }} ({{ c.category or "n/a" }})</option>
-      {% endfor %}
-    </select>
+<div class="evaluate-layout">
+  <div class="form-column">
+    <div class="panel">
+      <form class="loading-form" method="post" action="/prompts/evaluate" id="evaluate-form">
+        <div class="field">
+          <label>Stage</label>
+          <div class="segmented">
+            <input type="radio" id="stage-input" name="stage" value="input" {% if stage != "output" %}checked{% endif %}>
+            <label for="stage-input">input</label>
+            <input type="radio" id="stage-output" name="stage" value="output" {% if stage == "output" %}checked{% endif %}>
+            <label for="stage-output">output</label>
+          </div>
+          <p class="field-hint">Different guardrails apply to what the customer sends (input) vs. what the bot sends back (output). Picking an example below sets this for you.</p>
+        </div>
+        <div class="field">
+          <label for="text">Message</label>
+          <textarea id="text" name="text" rows="5" required>{{ text }}</textarea>
+        </div>
+        <div class="field" id="request-text-field" {% if stage != "output" %}style="display:none"{% endif %}>
+          <label for="request_text">Request context (the message the bot was replying to)</label>
+          <textarea id="request_text" name="request_text" rows="3">{{ request_text }}</textarea>
+        </div>
+
+        {% if test_cases %}
+        <details class="examples-picker">
+          <summary>Try an example ({{ test_cases|length }} available)</summary>
+          <div class="examples-scroll">
+            {% for category, cases in test_cases|groupby("category") %}
+            <p class="examples-group-label">{{ category.replace("_", " ") }}</p>
+            <div class="chip-row">
+              {% for c in cases %}
+              <button type="button" class="chip"
+                      data-stage="{{ c.stage }}"
+                      data-text="{{ c.text }}"
+                      data-request-text="{{ c.request_text }}"
+                      title="{{ c.file }}: {{ c.id }} ({{ c.stage }})">{{ c.stage }}: {{ c.text[:48] }}{% if c.text|length > 48 %}…{% endif %}</button>
+              {% endfor %}
+            </div>
+            {% endfor %}
+          </div>
+        </details>
+        {% endif %}
+
+        <details>
+          <summary>Advanced: chunking</summary>
+          <p class="field-hint">Long text gets split into pieces before each piece is checked. Override the defaults if needed.</p>
+          <div class="field"><label for="max_chars">Chunk size (characters)</label><input class="mono" type="text" id="max_chars" name="max_chars" placeholder="800 (default)"></div>
+          <div class="field"><label for="overlap_chars">Overlap between chunks</label><input class="mono" type="text" id="overlap_chars" name="overlap_chars" placeholder="100 (default)"></div>
+          <div class="field"><label for="max_chunks">Maximum chunks</label><input class="mono" type="text" id="max_chunks" name="max_chunks" placeholder="50 (default)"></div>
+        </details>
+        <button type="submit">Check message</button>
+      </form>
+    </div>
   </div>
-  {% endif %}
 
-  <form class="loading-form" method="post" action="/prompts/evaluate">
-    <div class="field">
-      <label>Stage</label>
-      <label><input type="radio" name="stage" value="input" {% if stage != "output" %}checked{% endif %}> input</label>
-      <label><input type="radio" name="stage" value="output" {% if stage == "output" %}checked{% endif %}> output</label>
+  <div class="result-column">
+    {% if result %}
+    <div class="panel">
+      <div class="decision">
+        <div class="badges">
+          <span class="badge-lg {{ result.status }}">{{ result.status }}</span>
+          {% if result.action %}<span class="badge-lg {{ result.action }}">{{ result.action }}</span>{% endif %}
+        </div>
+      </div>
+
+      {% if result.status == "INDETERMINATE" %}
+      <p class="verdict-line">Could not complete safely — treated as not allowed.</p>
+      {% else %}
+
+      {% if result.primary_match %}
+      <p class="verdict-line">
+        {% if result.action == "BLOCK" %}Blocked{% elif result.action == "FLAG" %}Flagged{% else %}Allowed{% endif %}
+        — this matches our {{ result.primary_match.category.replace("_", " ") }} rule
+        (<span class="mono">{{ result.primary_match.rule_id }}</span>).
+      </p>
+      <div class="strength">
+        {% set pct = ((1 - result.primary_match.distance / result.primary_match.threshold) * 100) | round | int %}
+        <div class="strength-track"><div class="strength-fill" style="width: {{ pct }}%"></div></div>
+        <div class="strength-labels">
+          <span>Match strength: {{ pct }}%</span>
+          <span class="mono">distance {{ "%.2f"|format(result.primary_match.distance) }} / threshold {{ "%.2f"|format(result.primary_match.threshold) }}</span>
+        </div>
+      </div>
+      {% else %}
+      <p class="verdict-line">Allowed — no guardrail matched this message.</p>
+      {% endif %}
+
+      {% if result.matches %}
+      <details {% if result.matches|length > 1 %}open{% endif %}>
+        <summary>All matches ({{ result.matches|length }})</summary>
+        <table>
+          <thead><tr><th>Rule</th><th>Category</th><th>Action</th><th class="num">Distance / threshold</th></tr></thead>
+          <tbody>
+            {% for m in result.matches %}
+            <tr>
+              <td class="mono">{{ m.rule_id }}</td><td>{{ m.category.replace("_", " ") }}</td>
+              <td><span class="badge {{ m.action }}">{{ m.action }}</span></td>
+              <td class="num">{{ "%.2f"|format(m.distance) }} / {{ "%.2f"|format(m.threshold) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </details>
+      {% endif %}
+
+      {% if result.chunks %}
+      <details>
+        <summary>Chunks ({{ result.chunks|length }})</summary>
+        {% for c in result.chunks %}
+        <div class="chunk">
+          <p><strong class="mono">[{{ c.id }}]</strong> chars <span class="mono">{{ c.start_character }}-{{ c.end_character }}</span></p>
+          <p>Evaluated text: {{ c.evaluated_text }}</p>
+          {% set chunk_matches = result.matches|selectattr("chunk_id", "equalto", c.id)|list if result.matches else [] %}
+          {% if chunk_matches %}
+          <ul>
+            {% for m in chunk_matches %}
+            <li>{{ m.rule_id }} ({{ m.category.replace("_", " ") }}) <span class="badge {{ m.action }}">{{ m.action }}</span> distance=<span class="mono">{{ "%.2f"|format(m.distance) }}</span></li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p>No matches for this chunk.</p>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </details>
+      {% endif %}
+
+      <p style="color: var(--color-text-muted); font-size: 0.9rem;">
+         Embedding <span class="mono">{{ "%.1f"|format(result.performance.embedding_ms) if result.performance.embedding_ms is not none else "n/a" }}ms</span>,
+         search <span class="mono">{{ "%.1f"|format(result.performance.search_ms) if result.performance.search_ms is not none else "n/a" }}ms</span>,
+         total <span class="mono">{{ "%.1f"|format(result.performance.total_ms) }}ms</span></p>
+      {% endif %}
     </div>
-    <div class="field">
-      <label for="text">Text</label>
-      <textarea id="text" name="text" rows="5" required>{{ text }}</textarea>
-    </div>
-    <div class="field">
-      <label for="request_text">Request context (output stage only)</label>
-      <textarea id="request_text" name="request_text" rows="3">{{ request_text }}</textarea>
-    </div>
-    <details>
-      <summary>Chunking overrides</summary>
-      <div class="field"><label for="max_chars">Max chars</label><input class="mono" type="text" id="max_chars" name="max_chars" placeholder="800 (default)"></div>
-      <div class="field"><label for="overlap_chars">Overlap chars</label><input class="mono" type="text" id="overlap_chars" name="overlap_chars" placeholder="100 (default)"></div>
-      <div class="field"><label for="max_chunks">Max chunks</label><input class="mono" type="text" id="max_chunks" name="max_chunks" placeholder="50 (default)"></div>
-    </details>
-    <button type="submit">Evaluate</button>
-  </form>
-</div>
-
-{% if result %}
-<h2>Result</h2>
-<div class="panel">
-<div class="decision">
-  <div class="badges">
-    <span class="badge-lg {{ result.status }}">{{ result.status }}</span>
-    {% if result.action %}<span class="badge-lg {{ result.action }}">{{ result.action }}</span>{% endif %}
-  </div>
-</div>
-
-{% if result.status == "INDETERMINATE" %}
-<p>Evaluation could not complete safely; treat as not allowed.</p>
-{% else %}
-
-{% if result.primary_match %}
-<p><strong>Primary match:</strong> {{ result.primary_match.rule_id }} ({{ result.primary_match.category }}),
-   distance <span class="mono">{{ "%.2f"|format(result.primary_match.distance) }}</span> &le;
-   threshold <span class="mono">{{ "%.2f"|format(result.primary_match.threshold) }}</span></p>
-{% else %}
-<p><strong>Primary match:</strong> none</p>
-{% endif %}
-
-{% if result.matches %}
-<h3>All matches ({{ result.matches|length }})</h3>
-<table>
-  <thead><tr><th>Rule</th><th>Category</th><th>Action</th><th class="num">Distance / threshold</th><th>Chunk</th><th>Evaluated text</th></tr></thead>
-  <tbody>
-    {% for m in result.matches %}
-    <tr>
-      <td>{{ m.rule_id }}</td><td>{{ m.category }}</td>
-      <td><span class="badge {{ m.action }}">{{ m.action }}</span></td>
-      <td class="num">{{ "%.2f"|format(m.distance) }} / {{ "%.2f"|format(m.threshold) }}</td>
-      <td class="mono">{{ m.chunk_id }}</td><td>{{ m.evaluated_text }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-{% endif %}
-
-{% if result.chunks %}
-<details>
-  <summary>Chunks ({{ result.chunks|length }})</summary>
-  {% for c in result.chunks %}
-  <div class="chunk">
-    <p><strong class="mono">[{{ c.id }}]</strong> chars <span class="mono">{{ c.start_character }}-{{ c.end_character }}</span></p>
-    <p>Evaluated text: {{ c.evaluated_text }}</p>
-    {% set chunk_matches = result.matches|selectattr("chunk_id", "equalto", c.id)|list if result.matches else [] %}
-    {% if chunk_matches %}
-    <ul>
-      {% for m in chunk_matches %}
-      <li>{{ m.rule_id }} ({{ m.category }}) <span class="badge {{ m.action }}">{{ m.action }}</span> distance=<span class="mono">{{ "%.2f"|format(m.distance) }}</span></li>
-      {% endfor %}
-    </ul>
     {% else %}
-    <p>No matches for this chunk.</p>
+    <div class="result-placeholder">
+      <p>Results will appear here once you check a message.</p>
+    </div>
     {% endif %}
   </div>
-  {% endfor %}
-</details>
-{% endif %}
-
-<p style="color: var(--color-text-muted); font-size: 0.9rem;">
-   Embedding <span class="mono">{{ "%.1f"|format(result.performance.embedding_ms) if result.performance.embedding_ms is not none else "n/a" }}ms</span>,
-   search <span class="mono">{{ "%.1f"|format(result.performance.search_ms) if result.performance.search_ms is not none else "n/a" }}ms</span>,
-   total <span class="mono">{{ "%.1f"|format(result.performance.total_ms) }}ms</span></p>
-{% endif %}
 </div>
-{% endif %}
 
 <script>
-function redisGuardrailsFillFromTestCase(select) {
-  var opt = select.selectedOptions[0];
-  if (!opt || !opt.dataset.text) { return; }
-  var stageInput = document.querySelector('input[name="stage"][value="' + opt.dataset.stage + '"]');
-  if (stageInput) { stageInput.checked = true; }
-  document.getElementById('text').value = opt.dataset.text;
-  document.getElementById('request_text').value = opt.dataset.requestText || '';
-}
+(function () {
+  var stageInputs = document.querySelectorAll('input[name="stage"]');
+  var requestTextField = document.getElementById('request-text-field');
+
+  function syncRequestTextVisibility() {
+    var isOutput = document.querySelector('input[name="stage"]:checked').value === 'output';
+    requestTextField.style.display = isOutput ? '' : 'none';
+  }
+  stageInputs.forEach(function (input) { input.addEventListener('change', syncRequestTextVisibility); });
+
+  document.querySelectorAll('.chip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      var stageInput = document.querySelector('input[name="stage"][value="' + chip.dataset.stage + '"]');
+      if (stageInput) { stageInput.checked = true; }
+      document.getElementById('text').value = chip.dataset.text;
+      document.getElementById('request_text').value = chip.dataset.requestText || '';
+      syncRequestTextVisibility();
+    });
+  });
+})();
 </script>
 {% endblock %}

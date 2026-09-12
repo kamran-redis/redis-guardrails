@@ -50,10 +50,11 @@ def _load_test_cases() -> list[dict]:
                 "file": path.name,
                 "id": case_id,
                 "stage": stage,
-                "category": case.get("category"),
+                "category": case.get("category") or "other",
                 "text": text,
                 "request_text": request_text,
             })
+    cases.sort(key=lambda c: (c["category"], c["file"], c["id"]))
     return cases
 
 
