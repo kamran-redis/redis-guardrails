@@ -28,7 +28,7 @@ When extending any layer, put logic in the lowest layer that needs it and have t
 
 - Python 3.10+. Editable install: `.venv/bin/pip install -e ".[cli,web,test]"` (or a subset of extras as needed).
 - `cli`/`embeddings` extras pull in `sentence-transformers` (real embedding model, ~90MB download on first use). `web` extra pulls in FastAPI/uvicorn/Jinja2/python-multipart — does **not** include `sentence-transformers`, so `redis-guardrails serve` needs `.[web,cli]` together, not `.[web]` alone.
-- Requires **Redis Stack** (RediSearch module, not plain Redis) for anything that actually talks to Redis: `docker run -d -p 6379:6379 --name redis-stack-guardrails redis/redis-stack-server:latest`.
+- Requires **Redis 8+** (built-in search/vector module, not an older plain Redis) for anything that actually talks to Redis: `docker run -d -p 6379:6379 --name redis-guardrails redis:8`.
 - Sandboxed environments here can raise permission errors on `pip install` (SSL cert access), on `git worktree remove` for uncommitted files, and on anything binding/connecting to a network port (`uvicorn`, `redis-cli`, integration tests hitting Redis) — these are sandbox restrictions, not real errors; retry with the sandbox disabled rather than treating them as project bugs.
 
 ## Testing

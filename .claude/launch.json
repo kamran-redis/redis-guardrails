@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "redis-guardrails-web",
+      "runtimeExecutable": ".venv/bin/redis-guardrails",
+      "runtimeArgs": ["serve"],
+      "port": 8000
+    }
+  ]
+}

@@ -18,7 +18,7 @@ redis-guardrails = "redis_guardrails.cli.commands:cli"
 
 [tool.pytest.ini_options]
 markers = [
-    "integration: requires a running Redis Stack instance (set REDIS_URL to override redis://localhost:6379)",
+    "integration: requires a running Redis 8+ instance (set REDIS_URL to override redis://localhost:6379)",
 ]
 
 [tool.setuptools]

@@ -14,10 +14,10 @@ See `docs/vector-guardrail-algorithm.md` for the full matching algorithm and `do
 ## Requirements
 
 - Python 3.10+
-- **Redis Stack** (not plain Redis — you need the RediSearch module). The easiest way to run it locally:
+- **Redis 8+** (not an older plain Redis — you need the built-in search/vector module, bundled by default in Redis 8). The easiest way to run it locally:
 
   ```bash
-  docker run -d -p 6379:6379 --name redis-stack-guardrails redis/redis-stack-server:latest
+  docker run -d -p 6379:6379 --name redis-guardrails redis:8
   ```
 
 ## Installation
@@ -150,7 +150,7 @@ print(result.status, result.action)  # COMPLETED BLOCK
 .venv/bin/pytest -v -m "not integration"
 
 # Full suite, including real Redis + real embedding model
-docker run -d -p 6379:6379 --name redis-stack-guardrails redis/redis-stack-server:latest
+docker run -d -p 6379:6379 --name redis-guardrails redis:8
 REDIS_GUARDRAILS_ALLOW_TEST_OVERWRITE=1 .venv/bin/pytest -v
 ```
 

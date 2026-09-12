@@ -29,7 +29,7 @@ _redis_url_option = click.option(
     default=DEFAULT_REDIS_URL,
     show_default=True,
     show_envvar=True,
-    help="Redis Stack connection URL.",
+    help="Redis connection URL (requires Redis 8+ for search/vector support).",
 )
 _model_option = click.option(
     "--model",
