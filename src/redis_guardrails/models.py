@@ -4,10 +4,9 @@ from typing import Literal
 
 from redis_guardrails.errors import InvalidGuardrailError
 
-Stage = Literal["input", "output"]
+Stage = str
 Action = Literal["ALLOW", "FLAG", "BLOCK"]
 
-_VALID_STAGES = {"input", "output"}
 _VALID_ACTIONS = {"ALLOW", "FLAG", "BLOCK"}
 
 # Guardrail IDs become RedisVL route names, which get interpolated unescaped
@@ -22,6 +21,7 @@ _VALID_ACTIONS = {"ALLOW", "FLAG", "BLOCK"}
 # otherwise raise a raw SearchError wrapping a pydantic validation error
 # instead of InvalidGuardrailError).
 _VALID_ID_PATTERN = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
+_VALID_STAGE_PATTERN = re.compile(r"^[A-Za-z0-9._:-]{1,64}$")
 
 
 @dataclass
@@ -42,10 +42,11 @@ def validate_guardrail(guardrail: Guardrail) -> None:
             f"{_VALID_ID_PATTERN.pattern!r} (letters, digits, '.', '_', ':', "
             "'-', 1-128 characters)"
         )
-    if guardrail.stage not in _VALID_STAGES:
+    if not _VALID_STAGE_PATTERN.match(guardrail.stage):
         raise InvalidGuardrailError(
             f"guardrail {guardrail.id!r} has invalid stage {guardrail.stage!r}; "
-            f"must be one of {sorted(_VALID_STAGES)}"
+            f"must match {_VALID_STAGE_PATTERN.pattern!r} (letters, digits, '.', '_', ':', "
+            "'-', 1-64 characters)"
         )
     if guardrail.action not in _VALID_ACTIONS:
         raise InvalidGuardrailError(

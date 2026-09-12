@@ -22,9 +22,18 @@ def test_valid_guardrail_passes_validation():
     validate_guardrail(_guardrail())  # must not raise
 
 
-def test_invalid_stage_raises():
+def test_stage_with_unsafe_characters_raises():
     with pytest.raises(InvalidGuardrailError):
-        validate_guardrail(_guardrail(stage="request"))
+        validate_guardrail(_guardrail(stage="bad stage!"))
+
+
+def test_empty_stage_raises():
+    with pytest.raises(InvalidGuardrailError):
+        validate_guardrail(_guardrail(stage=""))
+
+
+def test_novel_stage_name_passes_validation():
+    validate_guardrail(_guardrail(stage="input2"))  # must not raise
 
 
 def test_invalid_action_raises():
