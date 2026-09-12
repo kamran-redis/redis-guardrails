@@ -77,9 +77,7 @@ class FakeStore:
         return [g for g in values if scope is None or g.scope == scope]
 
     def known_scopes(self) -> list[str]:
-        # Mirrors GuardrailStore's _DEFAULT_SCOPES union: "input"/"output"
-        # are always known, regardless of whether any guardrail exists yet.
-        return sorted({g.scope for g in self._guardrails.values()} | {"input", "output"})
+        return sorted({g.scope for g in self._guardrails.values()})
 
     def embed(self, texts: list[str]) -> list[list[float]]:
         self.embedded_texts.extend(texts)

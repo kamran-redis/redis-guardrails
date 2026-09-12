@@ -1,6 +1,13 @@
+from types import SimpleNamespace
+
 import pytest
 
-from redis_guardrails.errors import DuplicateGuardrailError, GuardrailNotFoundError, SearchError
+from redis_guardrails.errors import (
+    DuplicateGuardrailError,
+    GuardrailNotFoundError,
+    InvalidGuardrailError,
+    SearchError,
+)
 from redis_guardrails.models import Chunk, Guardrail
 from redis_guardrails.store import GuardrailStore
 from tests.fakes import HashVectorizer
@@ -172,7 +179,6 @@ def test_add_guardrail_with_new_scope_creates_router_and_is_searchable(store):
 
 @pytest.mark.integration
 def test_add_guardrail_with_prefix_colliding_scope_raises(store):
-    from redis_guardrails.errors import InvalidGuardrailError
     with pytest.raises(InvalidGuardrailError):
         store.add(_guardrail(id="g-colliding", scope="input2", examples=["ex"]))
 
@@ -206,15 +212,11 @@ def test_second_store_instance_discovers_a_novel_scope_added_by_first(redis_url,
 
 
 @pytest.mark.integration
-def test_second_store_instance_still_attaches_default_scopes_after_a_custom_scope_is_registered(
-    redis_url, allow_test_overwrite
-):
-    # Regression test: __init__ must union the registry with _DEFAULT_SCOPES
-    # (not "registry or _DEFAULT_SCOPES"), or else once any custom scope is
-    # ever registered, a freshly-constructed GuardrailStore stops attaching
-    # "input"/"output" at all -- even though their Redis indices still hold
-    # real data -- because those two default scopes are never themselves
-    # written into the registry SET by ordinary (non-lazy) usage.
+def test_second_store_instance_discovers_a_scope_that_predates_it(redis_url, allow_test_overwrite):
+    # A scope's index in Redis is itself the source of truth: even a scope
+    # created before this store instance ever ran (by an earlier process,
+    # or one that no longer exists) is discovered via FT._LIST alongside
+    # other scopes -- no separate registration step required.
     first = GuardrailStore(redis_url=redis_url, vectorizer=HashVectorizer(), overwrite=True)
     first.add(_guardrail(id="g-input-before-custom", scope="input", examples=["seen before custom scope"]))
     first.add(_guardrail(id="g-custom", scope="custom-scope-x", examples=["custom scope example"]))
@@ -237,3 +239,43 @@ def test_update_can_move_a_guardrail_onto_a_brand_new_scope(store):
     fetched = store.get("prompt-injection-input-001")
     assert fetched.scope == "brand-new-scope"
     assert [g.id for g in store.list(scope="brand-new-scope")] == ["prompt-injection-input-001"]
+
+
+@pytest.mark.integration
+def test_update_onto_a_prefix_colliding_scope_raises_invalid_not_search_error(store):
+    # update() must surface the same InvalidGuardrailError as add() does for
+    # a scope-name prefix collision -- not a generic SearchError -- so
+    # callers branching on exception type see a validation error, not what
+    # looks like an infra/search failure.
+    store.add(_guardrail(scope="input"))
+    with pytest.raises(InvalidGuardrailError):
+        store.update(_guardrail(scope="input2", examples=["moved onto a colliding scope"]))
+
+    # rollback must still have put the route back under "input"
+    fetched = store.get("prompt-injection-input-001")
+    assert fetched.scope == "input"
+
+
+def test_search_skips_a_route_deleted_between_route_many_and_get():
+    # Simulates a guardrail being deleted (by another thread/process, via
+    # update()/delete()) in the window between route_many() returning a
+    # candidate name and this loop resolving it with router.get(). Must
+    # skip the stale match, not raise an unhandled AttributeError on
+    # route.metadata -- an uncaught exception here would propagate past
+    # service.py's INDETERMINATE handling instead of degrading safely.
+    class _RaceyRouter:
+        routes = ["placeholder"]
+
+        def route_many(self, vector, max_k, aggregation_method):
+            return [SimpleNamespace(name="deleted-guardrail", distance=0.1)]
+
+        def get(self, name):
+            return None
+
+    store = GuardrailStore.__new__(GuardrailStore)
+    store._routers = {"racey": _RaceyRouter()}
+    chunk = Chunk(id="c0", source="racey", start_character=0, end_character=4, text="test")
+
+    matches = store.search([0.0], chunk, "racey")
+
+    assert matches == []

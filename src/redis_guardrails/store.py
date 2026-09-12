@@ -16,50 +16,39 @@ from redis_guardrails.errors import (
 from redis_guardrails.models import Chunk, Guardrail, Match, Scope
 
 _MAX_K = 100
-_SCOPES_REGISTRY_KEY = "guardrails:scopes"
-_DEFAULT_SCOPES = {"input", "output"}
+_SCOPE_PREFIX = "guardrails-"
 
 
 def _router_name(scope: str) -> str:
-    return f"guardrails-{scope}"
+    return f"{_SCOPE_PREFIX}{scope}"
 
 
 class GuardrailStore:
     def __init__(self, redis_url: str, vectorizer: BaseVectorizer, overwrite: bool = False):
         self._redis_url = redis_url
         self._vectorizer = vectorizer
-        scopes = self._read_known_scopes(redis_url) | _DEFAULT_SCOPES
+        scopes = self._discover_scopes(redis_url)
         self._routers: dict[str, SemanticRouter] = {
             scope: self._attach_or_create(_router_name(scope), redis_url, vectorizer, overwrite)
             for scope in scopes
         }
 
     @staticmethod
-    def _read_known_scopes(redis_url: str) -> set[str]:
-        """Which scopes have ever had a guardrail added, per the registry SET.
+    def _discover_scopes(redis_url: str) -> set[str]:
+        """Which scopes currently have a SemanticRouter index in Redis.
 
-        Empty on a fresh Redis (or one that predates this registry). Callers
-        union this with _DEFAULT_SCOPES (not "or" -- a non-empty registry
-        must never suppress "input"/"output", since their Redis indices can
-        still hold real data even if those two scopes were never explicitly
-        written into the registry themselves) so existing input/output-only
-        deployments keep working identically regardless of what custom
-        scopes have been registered elsewhere.
+        Derived directly from the live index list (FT._LIST) rather than a
+        separately maintained registry, so it can never drift from what
+        Redis actually has and needs no bookkeeping call on the write path.
+        Empty on a fresh Redis with no guardrails ever added.
         """
         client = Redis.from_url(redis_url)
         try:
-            raw = client.smembers(_SCOPES_REGISTRY_KEY)
+            names = client.execute_command("FT._LIST")
         finally:
             client.close()
-        return {s.decode() if isinstance(s, bytes) else s for s in raw}
-
-    @staticmethod
-    def _register_scope(redis_url: str, scope: str) -> None:
-        client = Redis.from_url(redis_url)
-        try:
-            client.sadd(_SCOPES_REGISTRY_KEY, scope)
-        finally:
-            client.close()
+        decoded = {n.decode() if isinstance(n, bytes) else n for n in names}
+        return {name[len(_SCOPE_PREFIX) :] for name in decoded if name.startswith(_SCOPE_PREFIX)}
 
     @staticmethod
     def _attach_or_create(
@@ -171,13 +160,16 @@ class GuardrailStore:
         return [Route(**route) for route in stored.get("routes", [])]
 
     def _ensure_router(self, scope: str) -> None:
-        """Lazily create (and register) a router for a scope never seen before.
+        """Lazily create a router for a scope never seen before.
 
         Shared by add() and update(): both can be handed a scope that has
         never had a guardrail in it yet -- add() via a brand-new guardrail,
         update() via moving an existing guardrail onto a new scope name --
         and in either case self._routers must gain a live entry for it
         before anything tries to look it up with [] rather than .get().
+        Creating the index here is the only "registration" a scope needs:
+        a second process discovers it later via _discover_scopes()'s
+        FT._LIST, no separate bookkeeping call required.
         """
         if scope not in self._routers:
             for existing in self._routers:
@@ -190,7 +182,6 @@ class GuardrailStore:
             self._routers[scope] = self._attach_or_create(
                 _router_name(scope), self._redis_url, self._vectorizer, overwrite=False
             )
-            self._register_scope(self._redis_url, scope)
 
     def known_scopes(self) -> list[str]:
         return sorted(self._routers)
@@ -215,6 +206,9 @@ class GuardrailStore:
         try:
             self._ensure_router(guardrail.scope)
             self._routers[guardrail.scope].add_route(self._to_route(guardrail))
+        except InvalidGuardrailError:
+            old_router.add_route(old_route)  # best-effort rollback
+            raise
         except Exception as exc:
             old_router.add_route(old_route)  # best-effort rollback
             raise SearchError(f"failed to update guardrail {guardrail.id!r}: {exc}") from exc
@@ -343,6 +337,12 @@ class GuardrailStore:
             if route_match.name is None or route_match.distance is None:
                 continue
             route = router.get(route_match.name)
+            if route is None:
+                # Deleted (via update()/delete()) between route_many()
+                # returning this candidate and this lookup resolving it --
+                # it no longer exists, so correctly excluding it here is not
+                # a coverage gap, unlike skipping a whole chunk would be.
+                continue
             matches.append(
                 Match(
                     rule_id=route_match.name,

@@ -9,13 +9,6 @@ def test_evaluate_get_renders_empty_form(client):
     assert "Run a Prompt" in response.text
 
 
-def test_evaluate_get_scope_select_is_never_empty(client):
-    response = client.get("/prompts/evaluate")
-    assert response.status_code == 200
-    assert "input" in response.text
-    assert "output" in response.text
-
-
 def test_evaluate_get_lists_test_cases_from_data_dir(client, tmp_path, monkeypatch):
     monkeypatch.setattr("redis_guardrails.web.routes.prompts.DATA_DIR", tmp_path)
     (tmp_path / "sample.json").write_text(json.dumps([

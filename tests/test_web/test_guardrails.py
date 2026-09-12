@@ -25,13 +25,6 @@ def test_new_guardrail_form_renders(client):
     assert "New Guardrail" in response.text
 
 
-def test_new_guardrail_form_scope_datalist_is_never_empty(client):
-    response = client.get("/guardrails/new")
-    assert response.status_code == 200
-    assert "input" in response.text
-    assert "output" in response.text
-
-
 def test_create_success_redirects_to_detail(client):
     response = client.post("/guardrails/new", data=_guardrail_form(), follow_redirects=False)
     assert response.status_code == 303
