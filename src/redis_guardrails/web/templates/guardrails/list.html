@@ -13,8 +13,9 @@
 <div class="panel">
   <nav class="tabs">
     <a href="/guardrails" class="{{ 'active' if not stage else '' }}">All</a>
-    <a href="/guardrails?stage=input" class="{{ 'active' if stage == 'input' else '' }}">Input</a>
-    <a href="/guardrails?stage=output" class="{{ 'active' if stage == 'output' else '' }}">Output</a>
+    {% for s in stages %}
+    <a href="/guardrails?stage={{ s }}" class="{{ 'active' if stage == s else '' }}">{{ s }}</a>
+    {% endfor %}
     <span class="spacer"></span>
     <a href="/guardrails/new">+ New guardrail</a>
   </nav>

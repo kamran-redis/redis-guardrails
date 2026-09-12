@@ -98,3 +98,32 @@ def test_delete_missing_guardrail_is_a_no_op_redirect(client):
     response = client.post("/guardrails/does-not-exist/delete", follow_redirects=False)
     assert response.status_code == 303
     assert "flash=not_found" in response.headers["location"]
+
+
+def test_new_guardrail_form_suggests_existing_stages(client, store):
+    store.add(Guardrail(
+        id="g-1", stage="input2", category="cat", description="d",
+        examples=["ex"], action="BLOCK", match_threshold=0.5,
+    ))
+    response = client.get("/guardrails/new")
+    assert response.status_code == 200
+    assert "input2" in response.text
+
+
+def test_can_create_guardrail_on_a_novel_stage(client):
+    response = client.post("/guardrails/new", data={
+        "id": "g-novel", "stage": "input2", "category": "cat", "description": "d",
+        "examples": "an example", "action": "BLOCK", "match_threshold": "0.5",
+    }, follow_redirects=False)
+    assert response.status_code == 303
+    assert response.headers["location"] == "/guardrails/g-novel"
+
+
+def test_list_page_shows_a_tab_for_each_stage_actually_present(client, store):
+    store.add(Guardrail(
+        id="g-1", stage="input2", category="cat", description="d",
+        examples=["ex"], action="BLOCK", match_threshold=0.5,
+    ))
+    response = client.get("/guardrails")
+    assert response.status_code == 200
+    assert "input2" in response.text

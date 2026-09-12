@@ -13,10 +13,11 @@
     </div>
     <div class="field">
       <label for="stage">Stage</label>
-      <select id="stage" name="stage" required>
-        <option value="input" {% if guardrail and guardrail.stage == "input" %}selected{% endif %}>input</option>
-        <option value="output" {% if guardrail and guardrail.stage == "output" %}selected{% endif %}>output</option>
-      </select>
+      <input type="text" id="stage" name="stage" list="known-stages"
+             value="{{ guardrail.stage if guardrail else '' }}" required>
+      <datalist id="known-stages">
+        {% for s in stages %}<option value="{{ s }}">{% endfor %}
+      </datalist>
     </div>
     <div class="field">
       <label for="category">Category</label>

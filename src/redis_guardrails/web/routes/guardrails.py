@@ -16,6 +16,10 @@ def _parse_examples(raw: str) -> list[str]:
     return [line.strip() for line in raw.splitlines() if line.strip()]
 
 
+def _known_stages(service: GuardrailService) -> list[str]:
+    return sorted({g.stage for g in service.list_guardrails()})
+
+
 @router.get("")
 def list_guardrails(
     request: Request,
@@ -27,16 +31,16 @@ def list_guardrails(
     return templates.TemplateResponse(
         request,
         "guardrails/list.html",
-        {"guardrails": guardrails, "stage": stage, "flash": flash},
+        {"guardrails": guardrails, "stage": stage, "flash": flash, "stages": _known_stages(service)},
     )
 
 
 @router.get("/new")
-def new_guardrail_form(request: Request):
+def new_guardrail_form(request: Request, service: GuardrailService = Depends(get_service)):
     return templates.TemplateResponse(
         request,
         "guardrails/form.html",
-        {"mode": "create", "guardrail": None, "error": None},
+        {"mode": "create", "guardrail": None, "error": None, "stages": _known_stages(service)},
     )
 
 
@@ -62,7 +66,7 @@ def create_guardrail(
         return templates.TemplateResponse(
             request,
             "guardrails/form.html",
-            {"mode": "create", "guardrail": guardrail, "error": str(exc)},
+            {"mode": "create", "guardrail": guardrail, "error": str(exc), "stages": _known_stages(service)},
             status_code=400,
         )
     return RedirectResponse(url=f"/guardrails/{guardrail.id}", status_code=303)
@@ -90,7 +94,7 @@ def edit_guardrail_form(
     return templates.TemplateResponse(
         request,
         "guardrails/form.html",
-        {"mode": "edit", "guardrail": guardrail, "error": None},
+        {"mode": "edit", "guardrail": guardrail, "error": None, "stages": _known_stages(service)},
     )
 
 
@@ -118,7 +122,7 @@ def update_guardrail_route(
         return templates.TemplateResponse(
             request,
             "guardrails/form.html",
-            {"mode": "edit", "guardrail": guardrail, "error": str(exc)},
+            {"mode": "edit", "guardrail": guardrail, "error": str(exc), "stages": _known_stages(service)},
             status_code=400,
         )
     return RedirectResponse(url=f"/guardrails/{guardrail.id}", status_code=303)
