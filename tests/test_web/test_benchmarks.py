@@ -20,7 +20,7 @@ def test_run_with_preset_shows_pass_fail_and_summary(client, store, tmp_path, mo
         Match(rule_id="g-1", category="cat", action="BLOCK", distance=0.1, threshold=0.5, chunk_id="input-0", evaluated_text="bad text")
     ]
     (tmp_path / "sample.json").write_text(json.dumps([
-        {"id": "case-1", "stage": "input", "input": "bad text", "category": "cat", "action": "BLOCK"},
+        {"id": "case-1", "stage": "input", "text": "bad text", "category": "cat", "action": "BLOCK"},
     ]))
 
     response = client.post("/benchmarks/run", data={"source": "preset", "preset_path": "sample.json"})
@@ -33,7 +33,7 @@ def test_run_with_preset_shows_pass_fail_and_summary(client, store, tmp_path, mo
 
 def test_run_with_uploaded_file_success(client):
     payload = json.dumps([
-        {"id": "case-1", "stage": "input", "input": "anything", "category": "cat", "action": "ALLOW"},
+        {"id": "case-1", "stage": "input", "text": "anything", "category": "cat", "action": "ALLOW"},
     ]).encode()
     response = client.post(
         "/benchmarks/run",
@@ -59,7 +59,7 @@ def test_run_with_uploaded_file_cleans_up_tempfile(client, monkeypatch):
     )
 
     payload = json.dumps([
-        {"id": "case-1", "stage": "input", "input": "anything", "category": "cat", "action": "ALLOW"},
+        {"id": "case-1", "stage": "input", "text": "anything", "category": "cat", "action": "ALLOW"},
     ]).encode()
     response = client.post(
         "/benchmarks/run",
