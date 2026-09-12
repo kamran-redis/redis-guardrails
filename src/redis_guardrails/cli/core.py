@@ -67,33 +67,19 @@ def load_guardrails_from_file(service: GuardrailService, path: Path) -> LoadRepo
     return LoadReport(total=len(raw_guardrails), added=added, errors=errors)
 
 
-def evaluate_prompt_input(
+def evaluate_prompt(
     service: GuardrailService,
+    stage: str,
     text: str,
+    context: str | None = None,
     max_chars: int | None = None,
     overlap_chars: int | None = None,
     max_chunks: int | None = None,
 ) -> EvaluationResult:
-    return service.evaluate_input(
+    return service.evaluate(
+        stage,
         text,
-        include_trace=True,
-        max_chars=max_chars,
-        overlap_chars=overlap_chars,
-        max_chunks=max_chunks,
-    )
-
-
-def evaluate_prompt_output(
-    service: GuardrailService,
-    response_text: str,
-    request_text: str | None = None,
-    max_chars: int | None = None,
-    overlap_chars: int | None = None,
-    max_chunks: int | None = None,
-) -> EvaluationResult:
-    return service.evaluate_output(
-        response_text=response_text,
-        request_text=request_text,
+        context=context,
         include_trace=True,
         max_chars=max_chars,
         overlap_chars=overlap_chars,
@@ -124,15 +110,10 @@ def run_benchmark(
 
     results: list[CaseResult] = []
     for case in cases:
-        if case["stage"] == "input":
-            result = service.evaluate_input(case["input"], include_trace=True, **chunk_overrides)
-        else:
-            result = service.evaluate_output(
-                response_text=case["output"],
-                request_text=case.get("input"),
-                include_trace=True,
-                **chunk_overrides,
-            )
+        result = service.evaluate(
+            case["stage"], case["text"], context=case.get("context"),
+            include_trace=True, **chunk_overrides,
+        )
         results.append(
             CaseResult(
                 case_id=case["id"],

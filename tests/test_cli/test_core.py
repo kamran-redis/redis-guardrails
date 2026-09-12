@@ -9,8 +9,7 @@ from redis_guardrails.cli.core import (
     PerformanceSummary,
     build_service,
     classify,
-    evaluate_prompt_input,
-    evaluate_prompt_output,
+    evaluate_prompt,
     load_guardrails_from_file,
     run_benchmark,
     summarize_performance,
@@ -87,28 +86,22 @@ def test_load_collects_malformed_record_as_type_error(service, tmp_path):
     assert report.errors[0].guardrail_id == "g-1"
 
 
-def test_evaluate_prompt_input_delegates_to_service(service, store):
-    store.matches_by_text["hello"] = [
-        Match(rule_id="g-1", category="cat", action="BLOCK", distance=0.1, threshold=0.5, chunk_id="input-0", evaluated_text="hello")
-    ]
-    result = evaluate_prompt_input(service, "hello")
-    assert result.action == "BLOCK"
+def test_evaluate_prompt_delegates_to_service_for_input_stage(service, store):
+    result = evaluate_prompt(service, "input", "hello")
+    assert result.status == "COMPLETED"
 
 
-def test_evaluate_prompt_input_always_populates_matches(service, store):
-    store.matches_by_text["hello"] = [
-        Match(rule_id="g-1", category="cat", action="BLOCK", distance=0.1, threshold=0.5, chunk_id="input-0", evaluated_text="hello")
-    ]
-    result = evaluate_prompt_input(service, "hello")
+def test_evaluate_prompt_always_populates_matches(service, store):
+    result = evaluate_prompt(service, "input", "hello")
     assert result.matches is not None
 
 
-def test_evaluate_prompt_output_passes_request_text_through(service, store):
-    prefixed = "User: what is my balance?\nAssistant: it is obvious"
-    store.matches_by_text[prefixed] = [
-        Match(rule_id="g-1", category="cat", action="FLAG", distance=0.1, threshold=0.5, chunk_id="output-0", evaluated_text=prefixed)
+def test_evaluate_prompt_passes_context_through_for_output_stage(service, store):
+    store.matches_by_text["User: what is my balance?\nAssistant: it is obvious"] = [
+        Match(rule_id="g-1", category="cat", action="FLAG", distance=0.1, threshold=0.5,
+              chunk_id="output-0", evaluated_text="User: what is my balance?\nAssistant: it is obvious")
     ]
-    result = evaluate_prompt_output(service, "it is obvious", request_text="what is my balance?")
+    result = evaluate_prompt(service, "output", "it is obvious", context="what is my balance?")
     assert result.action == "FLAG"
 
 
@@ -211,8 +204,8 @@ def test_run_benchmark_evaluates_input_and_output_cases(tmp_path):
     ]
 
     path = _write_json(tmp_path, "testdata.json", [
-        {"id": "case-1", "stage": "input", "input": "bad text", "category": "cat", "action": "BLOCK"},
-        {"id": "case-2", "stage": "output", "input": "req", "output": "resp", "category": "cat", "action": "ALLOW"},
+        {"id": "case-1", "stage": "input", "text": "bad text", "category": "cat", "action": "BLOCK"},
+        {"id": "case-2", "stage": "output", "text": "resp", "context": "req", "category": "cat", "action": "ALLOW"},
     ])
 
     results = run_benchmark(service, path)
@@ -223,15 +216,9 @@ def test_run_benchmark_evaluates_input_and_output_cases(tmp_path):
     assert results[1].result.action == "ALLOW"
 
 
-def test_evaluate_prompt_input_passes_chunking_overrides_through(service, store):
-    text = "word " * 60
-    evaluate_prompt_input(service, text, max_chars=100, overlap_chars=10)
-    assert len(store.embedded_texts) > 1
-
-
-def test_evaluate_prompt_output_passes_chunking_overrides_through(service, store):
-    text = "word " * 60
-    evaluate_prompt_output(service, text, max_chars=100, overlap_chars=10)
+def test_evaluate_prompt_passes_chunking_overrides_through(service, store):
+    text = "word " * 200
+    evaluate_prompt(service, "input", text, max_chars=100, overlap_chars=10)
     assert len(store.embedded_texts) > 1
 
 
@@ -239,7 +226,7 @@ def test_run_benchmark_passes_chunking_overrides_through(tmp_path):
     store = FakeStore()
     service = GuardrailService(store)
     path = _write_json(tmp_path, "testdata.json", [
-        {"id": "case-1", "stage": "input", "input": "word " * 60, "category": "cat", "action": "ALLOW"},
+        {"id": "case-1", "stage": "input", "text": "word " * 60, "category": "cat", "action": "ALLOW"},
     ])
 
     run_benchmark(service, path, max_chars=100, overlap_chars=10)
