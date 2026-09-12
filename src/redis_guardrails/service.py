@@ -46,37 +46,20 @@ class GuardrailService:
     def list_guardrails(self, stage: Stage | None = None) -> list[Guardrail]:
         return self._store.list(stage)
 
-    def evaluate_input(
+    def evaluate(
         self,
+        stage: str,
         text: str,
+        context: str | None = None,
         include_trace: bool = False,
         max_chars: int | None = None,
         overlap_chars: int | None = None,
         max_chunks: int | None = None,
     ) -> EvaluationResult:
+        prefix = f"User: {context}\nAssistant: " if context is not None else ""
         return self._evaluate(
-            stage="input",
+            stage=stage,
             text=text,
-            prefix="",
-            include_trace=include_trace,
-            max_chars=max_chars,
-            overlap_chars=overlap_chars,
-            max_chunks=max_chunks,
-        )
-
-    def evaluate_output(
-        self,
-        response_text: str,
-        request_text: str | None = None,
-        include_trace: bool = False,
-        max_chars: int | None = None,
-        overlap_chars: int | None = None,
-        max_chunks: int | None = None,
-    ) -> EvaluationResult:
-        prefix = f"User: {request_text}\nAssistant: " if request_text is not None else ""
-        return self._evaluate(
-            stage="output",
-            text=response_text,
             prefix=prefix,
             include_trace=include_trace,
             max_chars=max_chars,
