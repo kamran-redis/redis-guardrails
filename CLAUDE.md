@@ -22,13 +22,14 @@ When extending any layer, put logic in the lowest layer that needs it and have t
 - `redis_guardrails/cli/commands.py`: `import fastapi`/`import uvicorn`/`from redis_guardrails.web.app import create_app` must stay **inside** `serve_command`'s function body, never at module top-level — the module is imported unconditionally by the `redis-guardrails` console script, so a `.[cli]`-only install must not break `redis-guardrails --help`.
 - Route registration order matters in FastAPI/Starlette: a static path (`/new`) must be registered before a dynamic path with the same prefix (`/{guardrail_id}`), or the static one gets swallowed.
 - `Jinja2Templates.TemplateResponse` in the pinned dependency set requires `(request, name, context, ...)` with `request` as a required first positional argument — not the older `(name, {"request": request, ...})` form.
+- Guardrail stages (`Stage`, in `models.py`) are open strings, not a fixed `input`/`output` enum — a new stage's `SemanticRouter` is created lazily the first time a guardrail uses it (`GuardrailStore._ensure_router`), and known stages are tracked in a Redis `SET` (`guardrails:stages`) so a second process can discover one created elsewhere. **A new stage name must not be a prefix of, or prefixed by, any existing stage name** — the Redis index key prefix is derived as `f"guardrails-{stage}"`, so e.g. `input` and `input2` would overlap and corrupt each other's data; `_ensure_router` rejects this.
 
 ## Environment
 
 - Python 3.10+. Editable install: `.venv/bin/pip install -e ".[cli,web,test]"` (or a subset of extras as needed).
 - `cli`/`embeddings` extras pull in `sentence-transformers` (real embedding model, ~90MB download on first use). `web` extra pulls in FastAPI/uvicorn/Jinja2/python-multipart — does **not** include `sentence-transformers`, so `redis-guardrails serve` needs `.[web,cli]` together, not `.[web]` alone.
 - Requires **Redis Stack** (RediSearch module, not plain Redis) for anything that actually talks to Redis: `docker run -d -p 6379:6379 --name redis-stack-guardrails redis/redis-stack-server:latest`.
-- Sandboxed environments here can raise permission errors on `pip install` (SSL cert access) and on `git worktree remove` for uncommitted files — these are sandbox restrictions, not real errors; retry with the sandbox disabled rather than treating them as project bugs.
+- Sandboxed environments here can raise permission errors on `pip install` (SSL cert access), on `git worktree remove` for uncommitted files, and on anything binding/connecting to a network port (`uvicorn`, `redis-cli`, integration tests hitting Redis) — these are sandbox restrictions, not real errors; retry with the sandbox disabled rather than treating them as project bugs.
 
 ## Testing
 
@@ -41,5 +42,6 @@ When extending any layer, put logic in the lowest layer that needs it and have t
 
 - TDD: write the failing test, confirm it fails for the right reason, implement, confirm it passes.
 - New guardrail/CRUD or evaluation features go in the core library first, with CLI and web as thin consumers — never add a route handler that duplicates logic already in `GuardrailService`/`cli.core`.
-- Sample/test data lives in `data/` (`guardrails.json`, `testdata.json`, `testdata_extra.json`) — both the CLI's `benchmark` command and the web GUI's benchmark/prompt-picker features read from this directory via a live glob, so new files dropped in `data/*.json` become available automatically.
+- Sample/test data lives in `data/` (`guardrails.json`, `testdata.json`, `testdata_extra.json`) — both the CLI's `benchmark` command and the web GUI's benchmark/prompt-picker features read from this directory via a live glob, so new files dropped in `data/*.json` become available automatically. Test-data cases use `text` (what's being checked) and optional `context` (prior-turn text, for dialogue-shaped checks) — not stage-specific `input`/`output` keys.
 - No auth, no JS framework, no parallel REST/JSON API on the web GUI — it's an internal tool matching the CLI's own no-auth, local-Redis posture. Keep additions consistent with that unless explicitly asked to change it.
+- Known bugs are tracked in `BUGS.md`, not-yet-scheduled feature/content ideas in `BACKLOG.md` — add to these when you find or propose one, rather than only raising it in conversation.
