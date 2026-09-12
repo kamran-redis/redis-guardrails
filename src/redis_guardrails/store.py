@@ -15,16 +15,46 @@ from redis_guardrails.errors import (
 from redis_guardrails.models import Chunk, Guardrail, Match, Stage
 
 _MAX_K = 100
-_ROUTER_NAMES: dict[str, str] = {"input": "guardrails-input", "output": "guardrails-output"}
+_STAGES_REGISTRY_KEY = "guardrails:stages"
+_DEFAULT_STAGES = {"input", "output"}
+
+
+def _router_name(stage: str) -> str:
+    return f"guardrails-{stage}"
 
 
 class GuardrailStore:
     def __init__(self, redis_url: str, vectorizer: BaseVectorizer, overwrite: bool = False):
+        self._redis_url = redis_url
         self._vectorizer = vectorizer
-        self._routers: dict[Stage, SemanticRouter] = {
-            stage: self._attach_or_create(name, redis_url, vectorizer, overwrite)
-            for stage, name in _ROUTER_NAMES.items()
+        stages = self._read_known_stages(redis_url) or _DEFAULT_STAGES
+        self._routers: dict[str, SemanticRouter] = {
+            stage: self._attach_or_create(_router_name(stage), redis_url, vectorizer, overwrite)
+            for stage in stages
         }
+
+    @staticmethod
+    def _read_known_stages(redis_url: str) -> set[str]:
+        """Which stages have ever had a guardrail added, per the registry SET.
+
+        Empty on a fresh Redis (or one that predates this registry) --
+        callers fall back to _DEFAULT_STAGES so existing input/output-only
+        deployments behave exactly as before.
+        """
+        client = Redis.from_url(redis_url)
+        try:
+            raw = client.smembers(_STAGES_REGISTRY_KEY)
+        finally:
+            client.close()
+        return {s.decode() if isinstance(s, bytes) else s for s in raw}
+
+    @staticmethod
+    def _register_stage(redis_url: str, stage: str) -> None:
+        client = Redis.from_url(redis_url)
+        try:
+            client.sadd(_STAGES_REGISTRY_KEY, stage)
+        finally:
+            client.close()
 
     @staticmethod
     def _attach_or_create(
@@ -138,6 +168,11 @@ class GuardrailStore:
     def add(self, guardrail: Guardrail) -> None:
         if self.get(guardrail.id) is not None:
             raise DuplicateGuardrailError(guardrail.id)
+        if guardrail.stage not in self._routers:
+            self._routers[guardrail.stage] = self._attach_or_create(
+                _router_name(guardrail.stage), self._redis_url, self._vectorizer, overwrite=False
+            )
+            self._register_stage(self._redis_url, guardrail.stage)
         try:
             self._routers[guardrail.stage].add_route(self._to_route(guardrail))
         except Exception as exc:
@@ -175,7 +210,9 @@ class GuardrailStore:
         stages = [stage] if stage is not None else list(self._routers)
         result: list[Guardrail] = []
         for s in stages:
-            router = self._routers[s]
+            router = self._routers.get(s)
+            if router is None:
+                continue
             for route in router.routes:
                 result.append(self._to_guardrail(s, router, route))
         return result
@@ -251,8 +288,8 @@ class GuardrailStore:
                 )
 
     def search(self, vector: list[float], chunk: Chunk, stage: Stage) -> list[Match]:
-        router = self._routers[stage]
-        if not router.routes:
+        router = self._routers.get(stage)
+        if router is None or not router.routes:
             raise SearchError(f"no guardrails configured for stage {stage!r}")
 
         try:

@@ -150,3 +150,49 @@ def test_overwrite_true_actually_clears_old_data(redis_url, allow_test_overwrite
     )
     matches = second.search(old_vector, chunk, "input")
     assert matches == []
+
+
+@pytest.mark.integration
+def test_add_guardrail_with_new_stage_creates_router_and_is_searchable(store):
+    guardrail = _guardrail(id="g-novel", stage="input2", examples=["a brand new stage example"])
+    store.add(guardrail)
+
+    fetched = store.get("g-novel")
+    assert fetched.stage == "input2"
+
+    vector = store.embed(["a brand new stage example"])[0]
+    chunk = Chunk(
+        id="input2-0", source="input2", start_character=0, end_character=10,
+        text="a brand new stage example", evaluated_text="a brand new stage example",
+    )
+    matches = store.search(vector, chunk, "input2")
+    assert len(matches) == 1
+    assert matches[0].rule_id == "g-novel"
+
+
+@pytest.mark.integration
+def test_list_unknown_stage_returns_empty_list_not_error(store):
+    assert store.list(stage="totally-unknown-stage") == []
+
+
+@pytest.mark.integration
+def test_search_unknown_stage_raises_search_error_not_key_error(store):
+    vector = store.embed(["anything"])[0]
+    chunk = Chunk(
+        id="totally-unknown-stage-0", source="totally-unknown-stage", start_character=0, end_character=8,
+        text="anything", evaluated_text="anything",
+    )
+    with pytest.raises(SearchError):
+        store.search(vector, chunk, "totally-unknown-stage")
+
+
+@pytest.mark.integration
+def test_second_store_instance_discovers_a_novel_stage_added_by_first(redis_url, allow_test_overwrite):
+    first = GuardrailStore(redis_url=redis_url, vectorizer=HashVectorizer(), overwrite=True)
+    first.add(_guardrail(id="g-novel", stage="input2", examples=["novel stage example"]))
+
+    second = GuardrailStore(redis_url=redis_url, vectorizer=HashVectorizer(), overwrite=False)
+    fetched = second.get("g-novel")
+    assert fetched is not None
+    assert fetched.stage == "input2"
+    assert [g.id for g in second.list(stage="input2")] == ["g-novel"]
