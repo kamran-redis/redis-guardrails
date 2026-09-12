@@ -11,16 +11,18 @@
 {% endif %}
 
 <div class="panel">
-  <p class="actions" style="margin-bottom: var(--space-4);">
-    <a href="/guardrails">All</a> |
-    <a href="/guardrails?stage=input">Input</a> |
-    <a href="/guardrails?stage=output">Output</a> |
+  <nav class="tabs">
+    <a href="/guardrails" class="{{ 'active' if not stage else '' }}">All</a>
+    <a href="/guardrails?stage=input" class="{{ 'active' if stage == 'input' else '' }}">Input</a>
+    <a href="/guardrails?stage=output" class="{{ 'active' if stage == 'output' else '' }}">Output</a>
+    <span class="spacer"></span>
     <a href="/guardrails/new">+ New guardrail</a>
-  </p>
+  </nav>
 
+  {% if guardrails %}
   <table>
     <thead>
-      <tr><th>ID</th><th>Stage</th><th>Category</th><th>Action</th><th>Threshold</th><th></th></tr>
+      <tr><th>ID</th><th>Stage</th><th>Category</th><th>Action</th><th class="num">Threshold</th><th></th></tr>
     </thead>
     <tbody>
       {% for g in guardrails %}
@@ -29,7 +31,7 @@
         <td>{{ g.stage }}</td>
         <td>{{ g.category }}</td>
         <td><span class="badge {{ g.action }}">{{ g.action }}</span></td>
-        <td>{{ g.match_threshold }}</td>
+        <td class="num">{{ g.match_threshold }}</td>
         <td>
           <div class="actions">
             <a href="/guardrails/{{ g.id }}/edit">Edit</a>
@@ -43,5 +45,11 @@
       {% endfor %}
     </tbody>
   </table>
+  {% else %}
+  <div class="empty-state">
+    <p>{% if stage %}No {{ stage }}-stage guardrails yet.{% else %}No guardrails yet.{% endif %}</p>
+    <a href="/guardrails/new">Create one to start evaluating prompts against it</a>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

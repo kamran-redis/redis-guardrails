@@ -2,8 +2,12 @@
 {% block title %}Error {{ status_code }}{% endblock %}
 {% block content %}
 <div class="panel">
-  <h1>Error {{ status_code }}</h1>
-  <p>{{ message }}</p>
-  <p><a href="/">Back to home</a></p>
+  <div class="error-page">
+    <span class="status-code">{{ status_code }}</span>
+    <div>
+      <p>{{ message }}</p>
+      <p><a href="/">Back to home</a></p>
+    </div>
+  </div>
 </div>
 {% endblock %}

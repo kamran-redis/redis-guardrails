@@ -2,18 +2,19 @@
 {% block title %}redis_guardrails{% endblock %}
 {% block content %}
 <h1>redis_guardrails</h1>
+<p style="color: var(--color-text-muted); margin-top: calc(-1 * var(--space-3)); margin-bottom: var(--space-6);">Check requests and responses against your guardrails, or manage the rules themselves.</p>
 <div class="cards">
     <a class="card" href="/prompts/evaluate">
-        <h2>Run a Prompt</h2>
-        <p>Evaluate an input or output against the current guardrails.</p>
+        <h2>Run a prompt</h2>
+        <p>Check one input or output against the current guardrails.</p>
     </a>
     <a class="card" href="/benchmarks">
-        <h2>Run a Benchmark</h2>
-        <p>Run a test-data file and see pass/fail and performance.</p>
+        <h2>Run a benchmark</h2>
+        <p>Check a whole test-data file and see pass/fail and timing.</p>
     </a>
     <a class="card" href="/guardrails">
-        <h2>Manage Guardrails</h2>
-        <p>Browse, create, edit, and delete guardrails.</p>
+        <h2>Manage guardrails</h2>
+        <p>Browse, create, edit, and delete guardrail rules.</p>
     </a>
 </div>
 {% endblock %}

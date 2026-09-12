@@ -3,10 +3,10 @@
 {% block content %}
 <h1>{{ guardrail.id }}</h1>
 <div class="panel">
-  <p><span class="badge {{ guardrail.action }}">{{ guardrail.action }}</span> &middot; {{ guardrail.stage }} stage</p>
+  <p><span class="badge {{ guardrail.action }}">{{ guardrail.action }}</span> on the {{ guardrail.stage }} stage</p>
   <p><strong>Category:</strong> {{ guardrail.category }}</p>
   <p><strong>Description:</strong> {{ guardrail.description }}</p>
-  <p><strong>Match threshold:</strong> {{ guardrail.match_threshold }}</p>
+  <p><strong>Match threshold:</strong> <span class="mono">{{ guardrail.match_threshold }}</span></p>
   <p><strong>Examples:</strong></p>
   <ul>
     {% for example in guardrail.examples %}

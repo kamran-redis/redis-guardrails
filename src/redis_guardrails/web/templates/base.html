@@ -3,15 +3,17 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}redis_guardrails{% endblock %}</title>
+    <title>{% block title %}Redis Guardrails{% endblock %}</title>
+    <link rel="icon" href="/static/favicon.ico" sizes="any">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
     <header class="site-header">
-        <div class="brand">
-            <span class="brand-mark">rg</span>
-            <span class="brand-name">redis_guardrails</span>
-        </div>
+        <a class="brand" href="/">
+            <img class="brand-mark" src="/static/img/redis-logo.svg" alt="Redis" height="20">
+            <span class="brand-divider"></span>
+            <span class="brand-name">Guardrails</span>
+        </a>
         <nav>
             <a href="/" class="{{ 'active' if request.url.path == '/' else '' }}">Home</a>
             <a href="/prompts/evaluate" class="{{ 'active' if request.url.path.startswith('/prompts') else '' }}">Run Prompt</a>
