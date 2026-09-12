@@ -196,3 +196,37 @@ def test_second_store_instance_discovers_a_novel_stage_added_by_first(redis_url,
     assert fetched is not None
     assert fetched.stage == "input2"
     assert [g.id for g in second.list(stage="input2")] == ["g-novel"]
+
+
+@pytest.mark.integration
+def test_second_store_instance_still_attaches_default_stages_after_a_custom_stage_is_registered(
+    redis_url, allow_test_overwrite
+):
+    # Regression test: __init__ must union the registry with _DEFAULT_STAGES
+    # (not "registry or _DEFAULT_STAGES"), or else once any custom stage is
+    # ever registered, a freshly-constructed GuardrailStore stops attaching
+    # "input"/"output" at all -- even though their Redis indices still hold
+    # real data -- because those two default stages are never themselves
+    # written into the registry SET by ordinary (non-lazy) usage.
+    first = GuardrailStore(redis_url=redis_url, vectorizer=HashVectorizer(), overwrite=True)
+    first.add(_guardrail(id="g-input-before-custom", stage="input", examples=["seen before custom stage"]))
+    first.add(_guardrail(id="g-custom", stage="custom-stage-x", examples=["custom stage example"]))
+
+    second = GuardrailStore(redis_url=redis_url, vectorizer=HashVectorizer(), overwrite=False)
+    fetched = second.get("g-input-before-custom")
+    assert fetched is not None
+    assert fetched.stage == "input"
+    assert [g.id for g in second.list(stage="input")] == ["g-input-before-custom"]
+
+
+@pytest.mark.integration
+def test_update_can_move_a_guardrail_onto_a_brand_new_stage(store):
+    # Regression test: update() must lazily create (and register) a router
+    # for the target stage exactly like add() does, or moving a guardrail
+    # onto a stage never seen before raises KeyError instead of succeeding.
+    store.add(_guardrail(stage="input"))
+    store.update(_guardrail(stage="brand-new-stage", examples=["moved to a new stage"]))
+
+    fetched = store.get("prompt-injection-input-001")
+    assert fetched.stage == "brand-new-stage"
+    assert [g.id for g in store.list(stage="brand-new-stage")] == ["prompt-injection-input-001"]

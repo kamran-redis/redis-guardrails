@@ -27,7 +27,7 @@ class GuardrailStore:
     def __init__(self, redis_url: str, vectorizer: BaseVectorizer, overwrite: bool = False):
         self._redis_url = redis_url
         self._vectorizer = vectorizer
-        stages = self._read_known_stages(redis_url) or _DEFAULT_STAGES
+        stages = self._read_known_stages(redis_url) | _DEFAULT_STAGES
         self._routers: dict[str, SemanticRouter] = {
             stage: self._attach_or_create(_router_name(stage), redis_url, vectorizer, overwrite)
             for stage in stages
@@ -37,9 +37,13 @@ class GuardrailStore:
     def _read_known_stages(redis_url: str) -> set[str]:
         """Which stages have ever had a guardrail added, per the registry SET.
 
-        Empty on a fresh Redis (or one that predates this registry) --
-        callers fall back to _DEFAULT_STAGES so existing input/output-only
-        deployments behave exactly as before.
+        Empty on a fresh Redis (or one that predates this registry). Callers
+        union this with _DEFAULT_STAGES (not "or" -- a non-empty registry
+        must never suppress "input"/"output", since their Redis indices can
+        still hold real data even if those two stages were never explicitly
+        written into the registry themselves) so existing input/output-only
+        deployments keep working identically regardless of what custom
+        stages have been registered elsewhere.
         """
         client = Redis.from_url(redis_url)
         try:
@@ -165,14 +169,25 @@ class GuardrailStore:
             return []
         return [Route(**route) for route in stored.get("routes", [])]
 
+    def _ensure_router(self, stage: str) -> None:
+        """Lazily create (and register) a router for a stage never seen before.
+
+        Shared by add() and update(): both can be handed a stage that has
+        never had a guardrail in it yet -- add() via a brand-new guardrail,
+        update() via moving an existing guardrail onto a new stage name --
+        and in either case self._routers must gain a live entry for it
+        before anything tries to look it up with [] rather than .get().
+        """
+        if stage not in self._routers:
+            self._routers[stage] = self._attach_or_create(
+                _router_name(stage), self._redis_url, self._vectorizer, overwrite=False
+            )
+            self._register_stage(self._redis_url, stage)
+
     def add(self, guardrail: Guardrail) -> None:
         if self.get(guardrail.id) is not None:
             raise DuplicateGuardrailError(guardrail.id)
-        if guardrail.stage not in self._routers:
-            self._routers[guardrail.stage] = self._attach_or_create(
-                _router_name(guardrail.stage), self._redis_url, self._vectorizer, overwrite=False
-            )
-            self._register_stage(self._redis_url, guardrail.stage)
+        self._ensure_router(guardrail.stage)
         try:
             self._routers[guardrail.stage].add_route(self._to_route(guardrail))
         except Exception as exc:
@@ -186,6 +201,7 @@ class GuardrailStore:
         old_router = self._routers[existing.stage]
         old_route = self._to_route(existing)
         old_router.remove_route(guardrail.id)
+        self._ensure_router(guardrail.stage)
         try:
             self._routers[guardrail.stage].add_route(self._to_route(guardrail))
         except Exception as exc:
