@@ -1,20 +1,98 @@
 {% extends "base.html" %}
 {% block title %}redis_guardrails{% endblock %}
 {% block content %}
-<h1>redis_guardrails</h1>
-<p style="color: var(--color-text-muted); margin-top: calc(-1 * var(--space-3)); margin-bottom: var(--space-6);">Check requests and responses against your guardrails, or manage the rules themselves.</p>
-<div class="cards">
-    <a class="card" href="/prompts/evaluate">
-        <h2>Run a prompt</h2>
-        <p>Check one input or output against the current guardrails.</p>
-    </a>
-    <a class="card" href="/benchmarks">
-        <h2>Run a benchmark</h2>
-        <p>Check a whole test-data file and see pass/fail and timing.</p>
-    </a>
-    <a class="card" href="/guardrails">
-        <h2>Manage guardrails</h2>
-        <p>Browse, create, edit, and delete guardrail rules.</p>
-    </a>
+<div class="hero">
+  <p class="section-label">Semantic guardrails console</p>
+  <h1>Keep HAL inside the lines.</h1>
+  <p class="hero-sub">Every user message and model reply gets checked against your guardrail rules by vector similarity — allow, flag, or block, in milliseconds.</p>
 </div>
+
+<div class="cards">
+  <a class="card" href="/prompts/evaluate">
+    <img src="/static/img/icons/redis-search.svg" width="40" height="40" alt="" class="card-icon">
+    <p class="card-eyebrow">Live check</p>
+    <h3 class="card-title">Run a prompt</h3>
+    <p class="card-body">Check one message live — pick a scope, paste text, see the verdict and which rule matched.</p>
+    <span class="card-cta">Check a message →</span>
+  </a>
+  <a class="card" href="/benchmarks">
+    <img src="/static/img/icons/leaderboards.svg" width="40" height="40" alt="" class="card-icon">
+    <p class="card-eyebrow">Batch eval</p>
+    <h3 class="card-title">Run a benchmark</h3>
+    <p class="card-body">Check a whole test-data file against your guardrails and see pass/fail per case plus timing.</p>
+    <span class="card-cta">Run a test file →</span>
+  </a>
+  <a class="card" href="/guardrails">
+    <img src="/static/img/icons/security.svg" width="40" height="40" alt="" class="card-icon">
+    <p class="card-eyebrow">Configure</p>
+    <h3 class="card-title">Manage guardrails</h3>
+    <p class="card-body">Browse, create, edit, and delete the rules that guardrails checks run against.</p>
+    <span class="card-cta">Open guardrails →</span>
+  </a>
+</div>
+
+<section class="home-section">
+  <p class="section-label">How a check works</p>
+  <p class="section-lead">A message goes in, gets embedded and compared against every guardrail's examples by vector distance, and the closest match under its threshold decides the verdict.</p>
+  <ol class="step-diagram">
+    <li>
+      <span class="step-badge">01</span>
+      <div>
+        <div class="step-title">Text</div>
+        <div class="step-body">The user's message, or the model's reply.</div>
+      </div>
+    </li>
+    <li>
+      <span class="step-badge">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M3 4.5H10.55C10.7816 3.35888 11.7905 2.5 13 2.5C14.2095 2.5 15.2184 3.35888 15.45 4.5H17C17.2761 4.5 17.5 4.72386 17.5 5C17.5 5.27614 17.2761 5.5 17 5.5H15.45C15.2184 6.64112 14.2095 7.5 13 7.5C11.7905 7.5 10.7816 6.64112 10.55 5.5H3C2.72386 5.5 2.5 5.27614 2.5 5C2.5 4.72386 2.72386 4.5 3 4.5ZM13 3.5C12.1716 3.5 11.5 4.17157 11.5 5C11.5 5.82843 12.1716 6.5 13 6.5C13.8284 6.5 14.5 5.82843 14.5 5C14.5 4.17157 13.8284 3.5 13 3.5Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M9.44999 10.5L17 10.5C17.2761 10.5 17.5 10.2761 17.5 10C17.5 9.72386 17.2761 9.5 17 9.5L9.44999 9.5C9.21836 8.35888 8.20948 7.5 7 7.5C5.79052 7.5 4.78164 8.35888 4.55001 9.5L3 9.5C2.72386 9.5 2.5 9.72386 2.5 10C2.5 10.2761 2.72386 10.5 3 10.5H4.55001C4.78164 11.6411 5.79052 12.5 7 12.5C8.20948 12.5 9.21836 11.6411 9.44999 10.5ZM8.5 10C8.5 10.8284 7.82843 11.5 7 11.5C6.17157 11.5 5.5 10.8284 5.5 10C5.5 9.17157 6.17157 8.5 7 8.5C7.82843 8.5 8.5 9.17157 8.5 10Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M10.55 14.5H3C2.72386 14.5 2.5 14.7239 2.5 15C2.5 15.2761 2.72386 15.5 3 15.5H10.55C10.7816 16.6411 11.7905 17.5 13 17.5C14.2095 17.5 15.2184 16.6411 15.45 15.5H17C17.2761 15.5 17.5 15.2761 17.5 15C17.5 14.7239 17.2761 14.5 17 14.5H15.45C15.2184 13.3589 14.2095 12.5 13 12.5C11.7905 12.5 10.7816 13.3589 10.55 14.5ZM11.5 15C11.5 14.1716 12.1716 13.5 13 13.5C13.8284 13.5 14.5 14.1716 14.5 15C14.5 15.8284 13.8284 16.5 13 16.5C12.1716 16.5 11.5 15.8284 11.5 15Z" fill="currentColor"/></svg>
+      </span>
+      <div>
+        <div class="step-title">Chunk &amp; embed</div>
+        <div class="step-body">Split into chunks and embedded as vectors.</div>
+      </div>
+    </li>
+    <li>
+      <span class="step-badge step-badge--accent">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17.2915 16.5845L13.1425 12.4355C14.0607 11.3541 14.564 9.98115 14.5625 8.5625C14.5625 6.9712 13.9304 5.44509 12.8051 4.31987C11.6799 3.19465 10.1538 2.5625 8.5625 2.5625C6.9712 2.5625 5.44508 3.19465 4.31986 4.31987C3.19464 5.44509 2.5625 6.9712 2.5625 8.5625C2.5625 10.1538 3.19464 11.6799 4.31986 12.8051C5.44508 13.9304 6.9712 14.5625 8.5625 14.5625C9.98111 14.5638 11.3539 14.0605 12.4355 13.1425L16.5845 17.2915C16.6782 17.385 16.8052 17.4375 16.9375 17.4375C17.0032 17.4376 17.0683 17.4248 17.129 17.3997C17.1898 17.3747 17.245 17.3379 17.2915 17.2915C17.3852 17.1977 17.4379 17.0706 17.4379 16.938C17.4379 16.8054 17.3852 16.6783 17.2915 16.5845ZM8.5625 13.5625C7.23683 13.5612 5.96583 13.034 5.02843 12.0966C4.09104 11.1592 3.56382 9.88818 3.5625 8.5625C3.56409 7.2369 4.09139 5.96605 5.02872 5.02872C5.96606 4.09138 7.23691 3.56409 8.5625 3.5625C9.88818 3.56382 11.1592 4.09103 12.0966 5.02843C13.034 5.96582 13.5612 7.23682 13.5625 8.5625C13.5625 9.88858 13.0357 11.1604 12.098 12.098C11.1604 13.0357 9.88859 13.5625 8.5625 13.5625Z" fill="currentColor"/></svg>
+      </span>
+      <div>
+        <div class="step-title">Vector similarity search</div>
+        <div class="step-body">Checked against every guardrail's examples by distance.</div>
+      </div>
+    </li>
+    <li>
+      <span class="step-badge step-badge--dark">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M14 4.58829L6.50763 12L5.92457 11.9872L2 7.75193L2.59545 7.18925L6.23498 11.1169L13.4293 4L14 4.58829Z" fill="#fff" stroke="#fff" stroke-width="0.33"/></svg>
+      </span>
+      <div>
+        <div class="step-title">Allow, flag, or block</div>
+        <div class="step-body">Closest match under threshold wins.</div>
+      </div>
+    </li>
+  </ol>
+</section>
+
+<section class="home-section">
+  <p class="section-label">What's a guardrail</p>
+  <p class="section-lead">A guardrail is one rule: a scope, a category, a few example phrases, an action, and a threshold. There's one per behavior you want to catch — not one giant policy.</p>
+  <div class="guardrail-example">
+    <div class="guardrail-example-card">
+      <div class="guardrail-example-row guardrail-example-row--head">
+        <span class="badge BLOCK">BLOCK</span>
+        <span class="mono">gr-unverified-transfer-002</span>
+      </div>
+      <div class="guardrail-example-row"><span>scope</span><span class="mono">input</span></div>
+      <div class="guardrail-example-row"><span>category</span><span class="mono">unverified_transfer</span></div>
+      <div class="guardrail-example-row"><span>example phrase</span><span class="mono">"...skip verification"</span></div>
+      <div class="guardrail-example-row"><span>match threshold</span><span class="mono">0.40</span></div>
+    </div>
+    <div class="guardrail-example-annotations">
+      <p><b>Scope</b> — input or output. Scopes are just strings, so new ones can be added as needed.</p>
+      <p><b>Category</b> — the label shown on results and benchmark reports.</p>
+      <p><b>Examples</b> — reference phrases the incoming text is measured against by vector distance, not exact strings.</p>
+      <p><b>Threshold</b> — max distance still counted as a match. Lower = stricter, catches only close paraphrases.</p>
+    </div>
+  </div>
+  <p class="section-footnote"><b>Action</b> is the verdict this rule hands back when it fires — ALLOW, FLAG, or BLOCK — shown here as the badge on the rule's ID.</p>
+</section>
 {% endblock %}

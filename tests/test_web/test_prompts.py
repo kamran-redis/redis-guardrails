@@ -1,5 +1,3 @@
-import json
-
 from redis_guardrails.models import Guardrail, Match
 
 
@@ -9,33 +7,11 @@ def test_evaluate_get_renders_empty_form(client):
     assert "Run a Prompt" in response.text
 
 
-def test_evaluate_get_lists_test_cases_from_data_dir(client, tmp_path, monkeypatch):
-    monkeypatch.setattr("redis_guardrails.web.routes.prompts.DATA_DIR", tmp_path)
-    (tmp_path / "sample.json").write_text(json.dumps([
-        {"id": "case-1", "scope": "input", "text": "block this", "category": "cat", "action": "BLOCK"},
-        {"id": "case-2", "scope": "output", "text": "it is obvious", "category": "cat", "action": "FLAG"},
-    ]))
-
+def test_evaluate_get_with_no_scopes_shows_empty_state_not_broken_form(client):
     response = client.get("/prompts/evaluate")
     assert response.status_code == 200
-    assert "sample.json" in response.text
-    assert "case-1" in response.text
-    assert "case-2" in response.text
-    assert "block this" in response.text
-
-
-def test_evaluate_get_skips_malformed_test_data_files(client, tmp_path, monkeypatch):
-    monkeypatch.setattr("redis_guardrails.web.routes.prompts.DATA_DIR", tmp_path)
-    (tmp_path / "broken.json").write_text("not json")
-    (tmp_path / "wrong_shape.json").write_text(json.dumps({"not": "a list"}))
-    (tmp_path / "missing_fields.json").write_text(json.dumps([{"id": "no-scope-or-input"}]))
-    (tmp_path / "good.json").write_text(json.dumps([
-        {"id": "case-1", "scope": "input", "text": "hello", "category": "cat", "action": "ALLOW"},
-    ]))
-
-    response = client.get("/prompts/evaluate")
-    assert response.status_code == 200
-    assert "case-1" in response.text
+    assert "No scopes yet" in response.text
+    assert 'name="scope"' not in response.text
 
 
 def test_evaluate_get_offers_novel_scope_from_existing_guardrails(client, store):

@@ -1,55 +1,79 @@
 {% extends "base.html" %}
-{% block title %}Run a Benchmark{% endblock %}
+{% block title %}Benchmarks{% endblock %}
 {% block content %}
-<h1>Run a Benchmark</h1>
+<div class="page-header">
+  <div>
+    <h1>Benchmarks</h1>
+    <p class="page-subtitle">Run a whole test-data file against the guardrails and see pass/fail per case.</p>
+  </div>
+</div>
 
 {% if error %}<div class="error-banner">{{ error }}</div>{% endif %}
 
-<div class="panel">
+<div class="panel" style="max-width: 640px;">
   <form class="loading-form" method="post" action="/benchmarks/run" enctype="multipart/form-data">
-    <div class="field">
-      <label><input type="radio" name="source" value="preset" checked> Existing file</label>
-      <select name="preset_path">
-        {% for p in presets %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
-      </select>
+    <div class="source-toggle">
+      <div class="source-option">
+        <label><input type="radio" name="source" value="preset" checked> Existing file</label>
+        <select name="preset_path">
+          {% for p in presets %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="source-option">
+        <label><input type="radio" name="source" value="upload"> Upload a file</label>
+        <input type="file" name="upload_file" accept=".json">
+      </div>
     </div>
-    <div class="field">
-      <label><input type="radio" name="source" value="upload"> Upload a file</label>
-      <input type="file" name="upload_file" accept=".json">
+    <div class="settings-row">
+      <details>
+        <summary>Settings:</summary>
+        <p class="field-hint">Long text gets split into pieces before each piece is checked. Override the defaults if needed.</p>
+        <div class="field"><label for="max_chars">Chunk size (characters)</label><input class="mono" type="text" id="max_chars" name="max_chars" placeholder="800 (default)"></div>
+        <div class="field"><label for="overlap_chars">Overlap between chunks</label><input class="mono" type="text" id="overlap_chars" name="overlap_chars" placeholder="100 (default)"></div>
+        <div class="field"><label for="max_chunks">Maximum chunks</label><input class="mono" type="text" id="max_chunks" name="max_chunks" placeholder="50 (default)"></div>
+      </details>
     </div>
-    <details>
-      <summary>Advanced: chunking</summary>
-      <p class="field-hint">Long text gets split into pieces before each piece is checked. Override the defaults if needed.</p>
-      <div class="field"><label for="max_chars">Chunk size (characters)</label><input class="mono" type="text" id="max_chars" name="max_chars" placeholder="800 (default)"></div>
-      <div class="field"><label for="overlap_chars">Overlap between chunks</label><input class="mono" type="text" id="overlap_chars" name="overlap_chars" placeholder="100 (default)"></div>
-      <div class="field"><label for="max_chunks">Maximum chunks</label><input class="mono" type="text" id="max_chunks" name="max_chunks" placeholder="50 (default)"></div>
-    </details>
-    <button type="submit">Run</button>
+    <button type="submit" data-loading-text="Running…" style="margin-top: var(--space-4);">Run</button>
   </form>
 </div>
 
 {% if cases is not none %}
-<h2>Results</h2>
-<div class="panel">
-  <table>
-    <thead><tr><th>Case</th><th>Scope</th><th>Category</th><th>Expected</th><th>Actual</th><th>Result</th></tr></thead>
-    <tbody>
-      {% for case in cases %}
-      <tr>
-        <td class="mono">{{ case.case_id }}</td><td>{{ case.scope }}</td><td>{{ case.category or "n/a" }}</td>
-        <td><span class="badge {{ case.expected_action }}">{{ case.expected_action }}</span></td>
-        <td>{% if case.result.action %}<span class="badge {{ case.result.action }}">{{ case.result.action }}</span>{% else %}n/a{% endif %}</td>
-        <td><span class="badge {{ classify(case) }}">{{ classify(case).replace("_", " ") }}</span></td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div style="margin-top: var(--space-6);">
+  <h2>Results</h2>
+  <div class="panel" style="padding: 0;">
+    <table>
+      <thead><tr><th>Case</th><th>Scope</th><th>Category</th><th>Expected</th><th>Actual</th><th>Result</th></tr></thead>
+      <tbody>
+        {% for case in cases %}
+        <tr>
+          <td class="mono">{{ case.case_id }}</td><td>{{ case.scope }}</td><td>{{ case.category or "n/a" }}</td>
+          <td><span class="badge {{ case.expected_action }}">{{ case.expected_action }}</span></td>
+          <td>{% if case.result.action %}<span class="badge {{ case.result.action }}">{{ case.result.action }}</span>{% else %}n/a{% endif %}</td>
+          <td><span class="badge {{ classify(case) }}">{{ classify(case).replace("_", " ") }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 
-  <h3>Performance</h3>
-  <p>Evaluations: <span class="mono">{{ performance.count }}</span></p>
-  <p>Avg total time: <span class="mono">{{ "%.1f"|format(performance.avg_total_ms) }}ms</span></p>
-  <p>p95 total time: <span class="mono">{{ "%.1f"|format(performance.p95_total_ms) }}ms</span></p>
-  <p>Indeterminate: <span class="mono">{{ performance.indeterminate_count }}</span></p>
+  <div class="stat-tiles">
+    <div class="stat-tile">
+      <div class="stat-tile-label">Evaluations:</div>
+      <div class="stat-tile-value mono">{{ performance.count }}</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-tile-label">Avg total time:</div>
+      <div class="stat-tile-value mono">{{ "%.1f"|format(performance.avg_total_ms) }}ms</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-tile-label">p95 total time:</div>
+      <div class="stat-tile-value mono">{{ "%.1f"|format(performance.p95_total_ms) }}ms</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-tile-label">Indeterminate:</div>
+      <div class="stat-tile-value mono">{{ performance.indeterminate_count }}</div>
+    </div>
+  </div>
 </div>
 {% endif %}
 {% endblock %}

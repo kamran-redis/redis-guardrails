@@ -1,96 +1,117 @@
 {% extends "base.html" %}
 {% block title %}Run a Prompt{% endblock %}
 {% block content %}
-<h1>Run a Prompt</h1>
+<div class="page-header">
+  <div>
+    <h1>Run a prompt</h1>
+    <p class="page-subtitle">Check a single message against the guardrails for its scope.</p>
+  </div>
+</div>
 
 {% if error %}<div class="error-banner">{{ error }}</div>{% endif %}
 
 <div class="evaluate-layout">
   <div class="form-column">
-    <div class="panel">
-      <form class="loading-form" method="post" action="/prompts/evaluate" id="evaluate-form">
-        <div class="field">
-          <label for="scope">Scope</label>
-          <select id="scope" name="scope" required>
-            {% for s in scopes %}
-            <option value="{{ s }}" {% if s == scope %}selected{% endif %}>{{ s }}</option>
-            {% endfor %}
-          </select>
-          <p class="field-hint">Different guardrails apply to different scopes of the conversation. Picking an example below sets this for you.</p>
+    <form class="loading-form" method="post" action="/prompts/evaluate" id="evaluate-form">
+      <div class="field">
+        <label>Scope</label>
+        {% if scopes %}
+        <div class="rd-toggle" role="radiogroup" aria-label="Scope">
+          {% for s in scopes %}
+          <input type="radio" id="scope-{{ s }}" name="scope" value="{{ s }}" {% if s == scope or (not scope and loop.first) %}checked{% endif %}>
+          <label for="scope-{{ s }}">{{ s }}</label>
+          {% endfor %}
         </div>
-        <div class="field">
-          <label for="text">Message</label>
-          <textarea id="text" name="text" rows="5" required>{{ text }}</textarea>
-        </div>
-
-        {% if test_cases %}
-        <details class="examples-picker">
-          <summary>Try an example ({{ test_cases|length }} available)</summary>
-          <div class="examples-scroll">
-            {% for category, cases in test_cases|groupby("category") %}
-            <p class="examples-group-label">{{ category.replace("_", " ") }}</p>
-            <div class="chip-row">
-              {% for c in cases %}
-              <button type="button" class="chip"
-                      data-scope="{{ c.scope }}"
-                      data-text="{{ c.text }}"
-                      title="{{ c.file }}: {{ c.id }} ({{ c.scope }})">{{ c.scope }}: {{ c.text[:48] }}{% if c.text|length > 48 %}…{% endif %}</button>
-              {% endfor %}
-            </div>
-            {% endfor %}
-          </div>
-        </details>
+        {% else %}
+        <p class="field-hint">No scopes yet — <a href="/guardrails/new">create a guardrail</a> to define one.</p>
         {% endif %}
+      </div>
+      <div class="field">
+        <label for="text">Message</label>
+        <textarea id="text" name="text" rows="7" placeholder="Paste the user message or model reply to check..." required>{{ text }}</textarea>
+        <div class="char-count-row"><span class="char-count" id="char-count">0 characters</span></div>
+      </div>
 
-        <details>
-          <summary>Advanced: chunking</summary>
+      <button type="submit" data-loading-text="Checking…" {% if not scopes %}disabled{% endif %}>Check message</button>
+
+      <details class="disclosure" id="examples-disclosure">
+        <summary>Examples:</summary>
+        <div class="disclosure-body">
+          <input type="file" id="examples-file-input" accept=".json" style="display:none">
+          <button type="button" class="btn-link secondary small" id="examples-load-btn" style="margin-bottom: var(--space-3);">Upload file</button>
+          <div id="examples-body">
+            <p class="examples-empty">No file loaded yet. Upload a file to browse examples.</p>
+          </div>
+        </div>
+      </details>
+
+      <details class="disclosure">
+        <summary>Settings:</summary>
+        <div class="disclosure-body">
           <p class="field-hint">Long text gets split into pieces before each piece is checked. Override the defaults if needed.</p>
           <div class="field"><label for="max_chars">Chunk size (characters)</label><input class="mono" type="text" id="max_chars" name="max_chars" placeholder="800 (default)"></div>
           <div class="field"><label for="overlap_chars">Overlap between chunks</label><input class="mono" type="text" id="overlap_chars" name="overlap_chars" placeholder="100 (default)"></div>
           <div class="field"><label for="max_chunks">Maximum chunks</label><input class="mono" type="text" id="max_chunks" name="max_chunks" placeholder="50 (default)"></div>
-        </details>
-        <button type="submit">Check message</button>
-      </form>
-    </div>
+        </div>
+      </details>
+    </form>
   </div>
 
   <div class="result-column">
     {% if result %}
-    <div class="panel">
-      <div class="decision">
-        <div class="badges">
-          <span class="badge-lg {{ result.status }}">{{ result.status }}</span>
-          {% if result.action %}<span class="badge-lg {{ result.action }}">{{ result.action }}</span>{% endif %}
-        </div>
+    {% set gauge = gauge_geometry(result.primary_match.distance) if result.primary_match else None %}
+    {% set verdict_key = result.action if result.status != "INDETERMINATE" else "INDETERMINATE" %}
+    <div class="panel verdict-panel verdict-panel--{{ verdict_key }}">
+      <div class="gauge-wrap">
+        <svg class="gauge" viewBox="0 0 220 130" aria-hidden="true">
+          <path class="gauge-track" d="M 14 116 A 96 96 0 0 1 206 116"/>
+          {% if gauge %}
+          <path class="gauge-arc" d="M 14 116 A 96 96 0 0 1 {{ "%.2f"|format(gauge.arc_x) }} {{ "%.2f"|format(gauge.arc_y) }}"/>
+          <line class="gauge-needle" x1="110" y1="116" x2="{{ "%.2f"|format(gauge.needle_x) }}" y2="{{ "%.2f"|format(gauge.needle_y) }}"/>
+          {% else %}
+          <line class="gauge-needle" x1="110" y1="116" x2="14" y2="116"/>
+          {% endif %}
+          <circle class="gauge-pivot" cx="110" cy="116" r="7"/>
+        </svg>
+        {% if gauge %}
+        <div class="gauge-value">{{ gauge.pct }}%</div>
+        <div class="gauge-caption">match strength</div>
+        {% endif %}
       </div>
 
-      {% if result.status == "INDETERMINATE" %}
-      <p class="verdict-line">Could not complete safely — treated as not allowed.</p>
-      {% else %}
-
-      {% if result.primary_match %}
-      <p class="verdict-line">
-        {% if result.action == "BLOCK" %}Blocked{% elif result.action == "FLAG" %}Flagged{% else %}Allowed{% endif %}
-        — this matches our {{ result.primary_match.category.replace("_", " ") }} rule
-        (<span class="mono">{{ result.primary_match.rule_id }}</span>).
-      </p>
-      <div class="strength">
-        {% set pct = ((1 - result.primary_match.distance / result.primary_match.threshold) * 100) | round | int %}
-        <div class="strength-track"><div class="strength-fill" style="width: {{ pct }}%"></div></div>
-        <div class="strength-labels">
-          <span>Match strength: {{ pct }}%</span>
-          <span class="mono">distance {{ "%.2f"|format(result.primary_match.distance) }} / threshold {{ "%.2f"|format(result.primary_match.threshold) }}</span>
+      <div class="verdict-heading">
+        <span class="verdict-icon-circle">
+          {% if verdict_key == "ALLOW" %}
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          {% elif verdict_key == "FLAG" %}
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v3.5"/><circle cx="12" cy="16.5" r="0.6" fill="currentColor"/></svg>
+          {% elif verdict_key == "BLOCK" %}
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          {% else %}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/><path d="M12 17v-.01M12 14c0-2 2-2 2-4a2 2 0 10-4 0"/></svg>
+          {% endif %}
+        </span>
+        <div>
+          <p class="verdict-word">
+            {% if result.status == "INDETERMINATE" %}Couldn't check
+            {% elif result.action == "BLOCK" %}Blocked
+            {% elif result.action == "FLAG" %}Flagged
+            {% else %}Allowed{% endif %}
+          </p>
+          <p class="verdict-line">
+            {% if result.status == "INDETERMINATE" %}Couldn't complete this check safely — treated as not allowed.
+            {% elif result.primary_match %}Matched <span class="mono">{{ result.primary_match.rule_id }}</span> — {{ result.primary_match.category.replace("_", " ") }}
+            {% else %}No guardrail matched this message.
+            {% endif %}
+          </p>
         </div>
       </div>
-      {% else %}
-      <p class="verdict-line">Allowed — no guardrail matched this message.</p>
-      {% endif %}
 
       {% if result.matches %}
       <details {% if result.matches|length > 1 %}open{% endif %}>
         <summary>All matches ({{ result.matches|length }})</summary>
         <table>
-          <thead><tr><th>Rule</th><th>Category</th><th>Action</th><th class="num">Distance / threshold</th></tr></thead>
+          <thead><tr><th>Rule</th><th>Category</th><th>Action</th><th class="num">Dist / thresh</th></tr></thead>
           <tbody>
             {% for m in result.matches %}
             <tr>
@@ -126,15 +147,15 @@
       </details>
       {% endif %}
 
-      <p style="color: var(--color-text-muted); font-size: 0.9rem;">
-         Embedding <span class="mono">{{ "%.1f"|format(result.performance.embedding_ms) if result.performance.embedding_ms is not none else "n/a" }}ms</span>,
-         search <span class="mono">{{ "%.1f"|format(result.performance.search_ms) if result.performance.search_ms is not none else "n/a" }}ms</span>,
-         total <span class="mono">{{ "%.1f"|format(result.performance.total_ms) }}ms</span></p>
-      {% endif %}
+      <div class="verdict-timing">
+        <span>embed <span class="mono">{{ "%.1f"|format(result.performance.embedding_ms) if result.performance.embedding_ms is not none else "n/a" }}ms</span></span>
+        <span>search <span class="mono">{{ "%.1f"|format(result.performance.search_ms) if result.performance.search_ms is not none else "n/a" }}ms</span></span>
+        <span>total <span class="mono">{{ "%.1f"|format(result.performance.total_ms) }}ms</span></span>
+      </div>
     </div>
     {% else %}
     <div class="result-placeholder">
-      <p>Results will appear here once you check a message.</p>
+      <p>Results will appear here after you check a message.</p>
     </div>
     {% endif %}
   </div>
@@ -142,13 +163,172 @@
 
 <script>
 (function () {
-  document.querySelectorAll('.chip').forEach(function (chip) {
-    chip.addEventListener('click', function () {
-      var scopeSelect = document.getElementById('scope');
-      if (scopeSelect && chip.dataset.scope) { scopeSelect.value = chip.dataset.scope; }
-      document.getElementById('text').value = chip.dataset.text;
+  var textarea = document.getElementById('text');
+  var charCount = document.getElementById('char-count');
+  function updateCharCount() {
+    if (!textarea || !charCount) return;
+    var n = textarea.value.length;
+    charCount.textContent = n + (n === 1 ? ' character' : ' characters');
+  }
+  if (textarea) { textarea.addEventListener('input', updateCharCount); updateCharCount(); }
+
+  // Chunking settings persist across page loads (e.g. after "Check message"
+  // re-renders the page) via sessionStorage, until the user clears/changes
+  // them themselves — same no-server-round-trip pattern as the examples panel.
+  var SETTINGS_STORAGE_KEY = 'redis-guardrails:prompt-settings';
+  var settingsFieldIds = ['max_chars', 'overlap_chars', 'max_chunks'];
+  var settingsFields = settingsFieldIds
+    .map(function (id) { return document.getElementById(id); })
+    .filter(Boolean);
+
+  (function restoreSettings() {
+    var saved;
+    try { saved = sessionStorage.getItem(SETTINGS_STORAGE_KEY); } catch (e) { return; }
+    if (!saved) return;
+    var data;
+    try { data = JSON.parse(saved); } catch (e) { return; }
+    if (!data) return;
+    settingsFields.forEach(function (field) {
+      if (typeof data[field.id] === 'string') { field.value = data[field.id]; }
     });
+  })();
+
+  function saveSettings() {
+    var data = {};
+    settingsFields.forEach(function (field) { data[field.id] = field.value; });
+    try { sessionStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
+  }
+  settingsFields.forEach(function (field) { field.addEventListener('input', saveSettings); });
+
+  // Examples panel: upload-and-parse, filter, render.
+  var fileInput = document.getElementById('examples-file-input');
+  var body = document.getElementById('examples-body');
+  var loadBtn = document.getElementById('examples-load-btn');
+  if (loadBtn) { loadBtn.addEventListener('click', function () { fileInput.click(); }); }
+
+  // Loaded examples, and whether the panel is expanded, persist across page
+  // loads (e.g. after "Check message" re-renders the page, or navigating to
+  // another tab and back) via sessionStorage — still no server round trip,
+  // just the browser remembering the last file and UI state.
+  var EXAMPLES_STORAGE_KEY = 'redis-guardrails:prompt-examples';
+  var EXAMPLES_OPEN_STORAGE_KEY = 'redis-guardrails:prompt-examples-open';
+  var loadedCases = [];
+
+  var examplesDisclosure = document.getElementById('examples-disclosure');
+  if (examplesDisclosure) {
+    try {
+      if (sessionStorage.getItem(EXAMPLES_OPEN_STORAGE_KEY) === 'true') { examplesDisclosure.open = true; }
+    } catch (e) {}
+    examplesDisclosure.addEventListener('toggle', function () {
+      try { sessionStorage.setItem(EXAMPLES_OPEN_STORAGE_KEY, String(examplesDisclosure.open)); } catch (e) {}
+    });
+  }
+
+  function saveExamples(filename, cases) {
+    try { sessionStorage.setItem(EXAMPLES_STORAGE_KEY, JSON.stringify({ filename: filename, cases: cases })); } catch (e) {}
+  }
+
+  (function restoreSavedExamples() {
+    var saved;
+    try { saved = sessionStorage.getItem(EXAMPLES_STORAGE_KEY); } catch (e) { return; }
+    if (!saved) return;
+    var data;
+    try { data = JSON.parse(saved); } catch (e) { return; }
+    if (!data || !Array.isArray(data.cases)) return;
+    loadedCases = data.cases;
+    renderExamples(data.filename);
+  })();
+
+  if (fileInput) {
+  fileInput.addEventListener('change', function () {
+    var file = fileInput.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var parsed;
+      try { parsed = JSON.parse(reader.result); } catch (e) {
+        body.innerHTML = '<p class="examples-empty examples-error">Could not read "' + file.name + '" as JSON.</p>';
+        return;
+      }
+      if (!Array.isArray(parsed)) {
+        body.innerHTML = '<p class="examples-empty examples-error">Expected a JSON array of cases in "' + file.name + '".</p>';
+        return;
+      }
+      loadedCases = parsed.filter(function (c) {
+        return c && typeof c.text === 'string' && typeof c.scope === 'string';
+      });
+      saveExamples(file.name, loadedCases);
+      renderExamples(file.name);
+    };
+    reader.readAsText(file);
   });
+  }
+
+  function uniqueValues(list, key) {
+    var seen = [], out = [];
+    list.forEach(function (c) {
+      var v = c[key] || 'other';
+      if (seen.indexOf(v) === -1) { seen.push(v); out.push(v); }
+    });
+    return out;
+  }
+
+  function renderExamples(filename) {
+    if (loadedCases.length === 0) {
+      body.innerHTML = '<p class="examples-empty">"' + filename + '" has no usable cases.</p>';
+      return;
+    }
+    var scopes = uniqueValues(loadedCases, 'scope');
+    var cats = uniqueValues(loadedCases, 'category');
+    var actions = uniqueValues(loadedCases.filter(function (c) { return c.action; }), 'action');
+    body.innerHTML =
+      '<p class="examples-source">Loaded ' + loadedCases.length + ' example' + (loadedCases.length === 1 ? '' : 's') + ' from <span class="mono">' + filename + '</span></p>' +
+      '<div class="examples-filters">' +
+      '<select id="examples-filter-scope"><option value="">All scopes</option>' + scopes.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('') + '</select>' +
+      '<select id="examples-filter-cat"><option value="">All categories</option>' + cats.map(function (c) { return '<option value="' + c + '">' + c.replace(/_/g, ' ') + '</option>'; }).join('') + '</select>' +
+      '<select id="examples-filter-action"><option value="">All actions</option>' + actions.map(function (a) { return '<option value="' + a + '">' + a + '</option>'; }).join('') + '</select>' +
+      '</div>' +
+      '<div class="examples-rows" id="examples-rows"></div>' +
+      '<p class="examples-empty" id="examples-rows-empty" style="display:none">No examples match these filters.</p>';
+    document.getElementById('examples-filter-scope').addEventListener('change', renderRows);
+    document.getElementById('examples-filter-cat').addEventListener('change', renderRows);
+    document.getElementById('examples-filter-action').addEventListener('change', renderRows);
+    renderRows();
+  }
+
+  function renderRows() {
+    var scopeFilter = document.getElementById('examples-filter-scope').value;
+    var catFilter = document.getElementById('examples-filter-cat').value;
+    var actionFilter = document.getElementById('examples-filter-action').value;
+    var rowsEl = document.getElementById('examples-rows');
+    var emptyEl = document.getElementById('examples-rows-empty');
+    var matched = loadedCases.filter(function (c) {
+      return (!scopeFilter || c.scope === scopeFilter) &&
+        (!catFilter || (c.category || 'other') === catFilter) &&
+        (!actionFilter || c.action === actionFilter);
+    });
+    rowsEl.innerHTML = '';
+    matched.forEach(function (c) {
+      var row = document.createElement('div');
+      row.className = 'examples-row';
+      var action = c.action || '';
+      row.innerHTML =
+        '<div class="examples-row-meta">' +
+        '<span class="mono examples-row-scope">' + c.scope + '</span>' +
+        '<span class="examples-row-cat">' + (c.category || 'other').replace(/_/g, ' ') + '</span>' +
+        (action ? '<span class="badge ' + action + '">' + action + '</span>' : '') +
+        '</div>' +
+        '<div class="examples-row-text"></div>';
+      row.querySelector('.examples-row-text').textContent = c.text;
+      row.addEventListener('click', function () {
+        textarea.value = c.text;
+        updateCharCount();
+      });
+      rowsEl.appendChild(row);
+    });
+    rowsEl.style.display = matched.length ? '' : 'none';
+    emptyEl.style.display = matched.length ? 'none' : '';
+  }
 })();
 </script>
 {% endblock %}
