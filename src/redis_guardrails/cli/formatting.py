@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from redis_guardrails.cli.core import CaseResult, LoadReport, PerformanceSummary, classify
+from redis_guardrails.cli.core import CaseResult, LoadReport, PerformanceSummary, classify, summarize_outcomes
 from redis_guardrails.models import EvaluationResult
 
 
@@ -29,35 +29,24 @@ def format_benchmark_report(cases: list[CaseResult], performance: PerformanceSum
             f"{case.expected_action:<9} {actual:<7} {classify(case)}"
         )
 
-    outcomes = [classify(c) for c in cases]
-    total = len(cases)
-    passed = outcomes.count("PASS")
-    false_positives = outcomes.count("FALSE_POSITIVE")
-    false_negatives = outcomes.count("FALSE_NEGATIVE")
-    wrong_severity = outcomes.count("WRONG_SEVERITY")
-    indeterminate = outcomes.count("INDETERMINATE")
-    accuracy = (passed / total * 100) if total else 0.0
+    outcomes = summarize_outcomes(cases)
 
     lines.append("")
     lines.append("Summary")
     lines.append("-" * len("Summary"))
-    lines.append(f"Total cases:     {total:>4}")
-    lines.append(f"Passed:          {passed:>4}  ({accuracy:.1f}%)")
-    lines.append(f"False positives: {false_positives:>4}")
-    lines.append(f"False negatives: {false_negatives:>4}")
-    lines.append(f"Wrong severity:  {wrong_severity:>4}")
-    lines.append(f"Indeterminate:   {indeterminate:>4}")
+    lines.append(f"Total cases:     {outcomes.total:>4}")
+    lines.append(f"Passed:          {outcomes.passed:>4}  ({outcomes.accuracy:.1f}%)")
+    lines.append(f"False positives: {outcomes.false_positives:>4}")
+    lines.append(f"False negatives: {outcomes.false_negatives:>4}")
+    lines.append(f"Wrong severity:  {outcomes.wrong_severity:>4}")
+    lines.append(f"Indeterminate:   {outcomes.indeterminate:>4}")
 
-    categories = sorted({c.category or "n/a" for c in cases})
     lines.append("")
     lines.append("Accuracy by category")
     lines.append("-" * len("Accuracy by category"))
     lines.append(f"{'Category':<20} {'Total':>6} {'Passed':>7} {'Accuracy':>9}")
-    for category in categories:
-        cat_cases = [c for c in cases if (c.category or "n/a") == category]
-        cat_passed = sum(1 for c in cat_cases if classify(c) == "PASS")
-        cat_accuracy = (cat_passed / len(cat_cases) * 100) if cat_cases else 0.0
-        lines.append(f"{category:<20} {len(cat_cases):>6} {cat_passed:>7} {cat_accuracy:>8.1f}%")
+    for cat in outcomes.by_category:
+        lines.append(f"{cat.category:<20} {cat.total:>6} {cat.passed:>7} {cat.accuracy:>8.1f}%")
 
     lines.append("")
     lines.append("Performance")

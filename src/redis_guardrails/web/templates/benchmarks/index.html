@@ -12,17 +12,12 @@
 
 <div class="panel" style="max-width: 640px;">
   <form class="loading-form" method="post" action="/benchmarks/run" enctype="multipart/form-data">
-    <div class="source-toggle">
-      <div class="source-option">
-        <label><input type="radio" name="source" value="preset" checked> Existing file</label>
-        <select name="preset_path">
-          {% for p in presets %}<option value="{{ p }}">{{ p }}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="source-option">
-        <label><input type="radio" name="source" value="upload"> Upload a file</label>
-        <input type="file" name="upload_file" accept=".json">
-      </div>
+    <input type="hidden" name="source" value="upload">
+    <div class="field">
+      <label class="btn-link secondary small" style="width: fit-content;">
+        Load file
+        <input type="file" id="upload_file" name="upload_file" accept=".json" style="display: none;" required>
+      </label>
     </div>
     <div class="settings-row">
       <details>
@@ -37,29 +32,105 @@
   </form>
 </div>
 
+<div id="benchmark-preview-section" style="display: none; margin-top: var(--space-6);">
+  <h3>Loaded file</h3>
+  <div id="benchmark-preview-body">
+    <p class="examples-source" id="benchmark-preview-source"></p>
+    <div class="examples-filters" id="benchmark-preview-filters" style="margin-bottom: var(--space-3); max-width: 640px;">
+      <select id="preview-filter-scope"><option value="">All scopes</option></select>
+      <select id="preview-filter-category"><option value="">All categories</option></select>
+      <select id="preview-filter-actual"><option value="">All actual</option></select>
+      <select id="preview-filter-result"><option value="">All results</option></select>
+    </div>
+    <div class="panel" style="padding: 0;">
+      <table>
+        <thead><tr><th>Case</th><th>Scope</th><th>Category</th><th>Expected</th><th>Actual</th><th>Result</th><th></th></tr></thead>
+        <tbody id="benchmark-preview-tbody"></tbody>
+      </table>
+    </div>
+    <p class="examples-empty" id="benchmark-preview-filter-empty" style="display: none; margin-top: var(--space-3);">No cases match these filters.</p>
+  </div>
+  <p class="examples-empty" id="benchmark-preview-message" style="display: none;"></p>
+</div>
+
 {% if cases is not none %}
-<div style="margin-top: var(--space-6);">
+<div id="benchmark-results" style="margin-top: var(--space-6);">
   <h2>Results</h2>
-  <div class="panel" style="padding: 0;">
+
+  <h3>Summary</h3>
+  <div class="stat-tiles">
+    <div class="stat-tile">
+      <div class="stat-tile-label">Total cases:</div>
+      <div class="stat-tile-value mono">{{ outcomes.total }}</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-tile-label">Passed:</div>
+      <div class="stat-tile-value mono">{{ outcomes.passed }} ({{ "%.1f"|format(outcomes.accuracy) }}%)</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-tile-label">False positives:</div>
+      <div class="stat-tile-value mono">{{ outcomes.false_positives }}</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-tile-label">False negatives:</div>
+      <div class="stat-tile-value mono">{{ outcomes.false_negatives }}</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-tile-label">Wrong severity:</div>
+      <div class="stat-tile-value mono">{{ outcomes.wrong_severity }}</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-tile-label">Indeterminate:</div>
+      <div class="stat-tile-value mono">{{ outcomes.indeterminate }}</div>
+    </div>
+  </div>
+
+  <h3>Settings</h3>
+  <div class="stat-tiles">
+    <div class="stat-tile">
+      <div class="stat-tile-label">Chunk size:</div>
+      <div class="stat-tile-value mono">{{ chunk_settings.max_chars.value }}{% if chunk_settings.max_chars.is_default %} (default){% endif %}</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-tile-label">Overlap:</div>
+      <div class="stat-tile-value mono">{{ chunk_settings.overlap_chars.value }}{% if chunk_settings.overlap_chars.is_default %} (default){% endif %}</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-tile-label">Max chunks:</div>
+      <div class="stat-tile-value mono">{{ chunk_settings.max_chunks.value }}{% if chunk_settings.max_chunks.is_default %} (default){% endif %}</div>
+    </div>
+  </div>
+
+  <h3>Accuracy by category</h3>
+  <div class="panel" style="padding: 0; max-width: 640px;">
     <table>
-      <thead><tr><th>Case</th><th>Scope</th><th>Category</th><th>Expected</th><th>Actual</th><th>Result</th></tr></thead>
+      <thead><tr><th>Category</th><th class="num">Total</th><th class="num">Passed</th><th class="num">Accuracy</th></tr></thead>
       <tbody>
-        {% for case in cases %}
+        {% for cat in outcomes.by_category %}
         <tr>
-          <td class="mono">{{ case.case_id }}</td><td>{{ case.scope }}</td><td>{{ case.category or "n/a" }}</td>
-          <td><span class="badge {{ case.expected_action }}">{{ case.expected_action }}</span></td>
-          <td>{% if case.result.action %}<span class="badge {{ case.result.action }}">{{ case.result.action }}</span>{% else %}n/a{% endif %}</td>
-          <td><span class="badge {{ classify(case) }}">{{ classify(case).replace("_", " ") }}</span></td>
+          <td>{{ cat.category.replace("_", " ") }}</td>
+          <td class="num">{{ cat.total }}</td>
+          <td class="num">{{ cat.passed }}</td>
+          <td class="num">{{ "%.1f"|format(cat.accuracy) }}%</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 
+  <h3>Performance</h3>
   <div class="stat-tiles">
     <div class="stat-tile">
       <div class="stat-tile-label">Evaluations:</div>
       <div class="stat-tile-value mono">{{ performance.count }}</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-tile-label">Avg embedding time:</div>
+      <div class="stat-tile-value mono">{{ "%.1f"|format(performance.avg_embedding_ms) + "ms" if performance.avg_embedding_ms is not none else "n/a" }}</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-tile-label">Avg search time:</div>
+      <div class="stat-tile-value mono">{{ "%.1f"|format(performance.avg_search_ms) + "ms" if performance.avg_search_ms is not none else "n/a" }}</div>
     </div>
     <div class="stat-tile">
       <div class="stat-tile-label">Avg total time:</div>
@@ -69,11 +140,346 @@
       <div class="stat-tile-label">p95 total time:</div>
       <div class="stat-tile-value mono">{{ "%.1f"|format(performance.p95_total_ms) }}ms</div>
     </div>
-    <div class="stat-tile">
-      <div class="stat-tile-label">Indeterminate:</div>
-      <div class="stat-tile-value mono">{{ performance.indeterminate_count }}</div>
-    </div>
   </div>
+
+  <h3>Cases</h3>
+  <div class="examples-filters" style="margin-bottom: var(--space-3); max-width: 640px;">
+    <select id="cases-filter-scope">
+      <option value="">All scopes</option>
+      {% for s in case_filters.scopes %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+    </select>
+    <select id="cases-filter-category">
+      <option value="">All categories</option>
+      {% for c in case_filters.categories %}<option value="{{ c }}">{{ c.replace("_", " ") }}</option>{% endfor %}
+    </select>
+    <select id="cases-filter-actual">
+      <option value="">All actual</option>
+      {% for a in case_filters.actuals %}<option value="{{ a }}">{{ a }}</option>{% endfor %}
+    </select>
+    <select id="cases-filter-result">
+      <option value="">All results</option>
+      {% for r in case_filters.results %}<option value="{{ r }}">{{ r.replace("_", " ") }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="panel" style="padding: 0;">
+    <table>
+      <thead><tr><th>Case</th><th>Scope</th><th>Category</th><th>Expected</th><th>Actual</th><th>Result</th><th></th></tr></thead>
+      <tbody id="cases-tbody">
+        {% for case in cases %}
+        <tr class="case-row" data-scope="{{ case.scope }}" data-category="{{ case.category or 'n/a' }}"
+            data-actual="{{ case.result.action or 'n/a' }}" data-result="{{ classify(case) }}">
+          <td class="mono">{{ case.case_id }}</td><td>{{ case.scope }}</td><td>{{ case.category or "n/a" }}</td>
+          <td><span class="badge {{ case.expected_action }}">{{ case.expected_action }}</span></td>
+          <td>{% if case.result.action %}<span class="badge {{ case.result.action }}">{{ case.result.action }}</span>{% else %}n/a{% endif %}</td>
+          <td><span class="badge {{ classify(case) }}">{{ classify(case).replace("_", " ") }}</span></td>
+          <td><button type="button" class="table-toggle" aria-expanded="false">+</button></td>
+        </tr>
+        <tr class="case-text-row" hidden>
+          <td colspan="7" class="case-text-cell">{{ case.text }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="examples-empty" id="cases-filter-empty" style="display: none; margin-top: var(--space-3);">No cases match these filters.</p>
 </div>
 {% endif %}
+
+<script>
+(function () {
+  var hasServerResults = {{ 'true' if cases is not none else 'false' }};
+
+  // ---- shared table helpers (used by both the pre-run preview table and
+  // the post-run results table, so "+" expand and filtering behave the
+  // same way in both places) ----
+
+  function textRowFor(caseRow) {
+    var next = caseRow.nextElementSibling;
+    return next && next.classList.contains('case-text-row') ? next : null;
+  }
+
+  function isExpanded(caseRow) {
+    var toggle = caseRow.querySelector('.table-toggle');
+    return !!toggle && toggle.getAttribute('aria-expanded') === 'true';
+  }
+
+  function wireTableToggles(tbody) {
+    Array.prototype.forEach.call(tbody.querySelectorAll('.table-toggle'), function (btn) {
+      btn.addEventListener('click', function () {
+        var row = btn.closest('tr');
+        var textRow = row && textRowFor(row);
+        if (!textRow) return;
+        var expanded = btn.getAttribute('aria-expanded') === 'true';
+        btn.setAttribute('aria-expanded', String(!expanded));
+        btn.textContent = expanded ? '+' : '-';
+        textRow.hidden = expanded;
+      });
+    });
+  }
+
+  function wireCaseFilters(tbody, selectsByKey, emptyEl) {
+    var keys = ['scope', 'category', 'actual', 'result'];
+    function apply() {
+      var visibleCount = 0;
+      Array.prototype.forEach.call(tbody.querySelectorAll('.case-row'), function (row) {
+        var match = keys.every(function (key) {
+          var select = selectsByKey[key];
+          return !select || !select.value || row.dataset[key] === select.value;
+        });
+        row.hidden = !match;
+        var textRow = textRowFor(row);
+        if (textRow) { textRow.hidden = !(match && isExpanded(row)); }
+        if (match) visibleCount += 1;
+      });
+      if (emptyEl) { emptyEl.style.display = visibleCount ? 'none' : ''; }
+    }
+    keys.forEach(function (key) {
+      if (selectsByKey[key]) { selectsByKey[key].addEventListener('change', apply); }
+    });
+    apply();
+  }
+
+  function uniqueSorted(values) {
+    var seen = {}, out = [];
+    values.forEach(function (v) {
+      if (!seen[v]) { seen[v] = true; out.push(v); }
+    });
+    out.sort();
+    return out;
+  }
+
+  function fillFilterOptions(select, values, allLabel) {
+    if (!select) return;
+    select.innerHTML = '';
+    var allOption = document.createElement('option');
+    allOption.value = '';
+    allOption.textContent = allLabel;
+    select.appendChild(allOption);
+    values.forEach(function (v) {
+      var option = document.createElement('option');
+      option.value = v;
+      option.textContent = v.replace(/_/g, ' ');
+      select.appendChild(option);
+    });
+  }
+
+  function appendCell(row, text, className) {
+    var td = document.createElement('td');
+    if (className) { td.className = className; }
+    td.textContent = text;
+    row.appendChild(td);
+    return td;
+  }
+
+  function buildCaseRow(c, actualText, resultText) {
+    var row = document.createElement('tr');
+    row.className = 'case-row';
+    row.dataset.scope = c.scope;
+    row.dataset.category = c.category || 'n/a';
+    row.dataset.actual = actualText;
+    row.dataset.result = resultText;
+
+    appendCell(row, c.id || '', 'mono');
+    appendCell(row, c.scope);
+    appendCell(row, c.category || 'n/a');
+
+    var expectedCell = document.createElement('td');
+    if (c.action) {
+      var badge = document.createElement('span');
+      badge.className = 'badge ' + c.action;
+      badge.textContent = c.action;
+      expectedCell.appendChild(badge);
+    } else {
+      expectedCell.textContent = 'n/a';
+    }
+    row.appendChild(expectedCell);
+
+    appendCell(row, actualText);
+    appendCell(row, resultText);
+
+    var toggleCell = document.createElement('td');
+    var toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'table-toggle';
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    toggleBtn.textContent = '+';
+    toggleCell.appendChild(toggleBtn);
+    row.appendChild(toggleCell);
+
+    var textRow = document.createElement('tr');
+    textRow.className = 'case-text-row';
+    textRow.hidden = true;
+    var textCell = document.createElement('td');
+    textCell.colSpan = 7;
+    textCell.className = 'case-text-cell';
+    textCell.textContent = c.text;
+    textRow.appendChild(textCell);
+
+    return [row, textRow];
+  }
+
+  // ---- pre-run preview: parse the uploaded file client-side, render it in
+  // the same table format as the post-run results, and persist it (plus the
+  // chunking settings) in sessionStorage so neither is lost across a Run
+  // (full page reload), a tab switch and back, or picking the same file
+  // again to rerun. Only loading a *different* file replaces it. ----
+
+  var FILE_STORAGE_KEY = 'redis-guardrails:benchmark-file';
+  var SETTINGS_STORAGE_KEY = 'redis-guardrails:benchmark-settings';
+
+  var fileInput = document.getElementById('upload_file');
+  var previewSection = document.getElementById('benchmark-preview-section');
+  var previewBody = document.getElementById('benchmark-preview-body');
+  var previewMessage = document.getElementById('benchmark-preview-message');
+  var previewSource = document.getElementById('benchmark-preview-source');
+  var previewTbody = document.getElementById('benchmark-preview-tbody');
+  var previewFilterEmpty = document.getElementById('benchmark-preview-filter-empty');
+  var previewFilterSelects = {
+    scope: document.getElementById('preview-filter-scope'),
+    category: document.getElementById('preview-filter-category'),
+    actual: document.getElementById('preview-filter-actual'),
+    result: document.getElementById('preview-filter-result'),
+  };
+  var resultsSection = document.getElementById('benchmark-results');
+
+  function isValidCase(c) {
+    return !!(c && typeof c.text === 'string' && typeof c.scope === 'string');
+  }
+
+  function saveStoredFile(filename, cases) {
+    try { sessionStorage.setItem(FILE_STORAGE_KEY, JSON.stringify({ filename: filename, cases: cases })); } catch (e) {}
+  }
+
+  function loadStoredFile() {
+    var raw;
+    try { raw = sessionStorage.getItem(FILE_STORAGE_KEY); } catch (e) { return null; }
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch (e) { return null; }
+  }
+
+  function attachStoredFileToInput(filename, cases) {
+    try {
+      var file = new File([JSON.stringify(cases)], filename, { type: 'application/json' });
+      var dt = new DataTransfer();
+      dt.items.add(file);
+      fileInput.files = dt.files;
+    } catch (e) {}
+  }
+
+  function showPreviewMessage(text) {
+    previewBody.style.display = 'none';
+    previewMessage.style.display = '';
+    previewMessage.textContent = text;
+  }
+
+  function renderPreviewTable(cases, filename) {
+    var valid = cases.filter(isValidCase);
+    if (valid.length === 0) {
+      showPreviewMessage('"' + filename + '" has no usable cases.');
+      return;
+    }
+    previewMessage.style.display = 'none';
+    previewBody.style.display = '';
+
+    previewSource.textContent = 'Loaded ' + valid.length + ' case' + (valid.length === 1 ? '' : 's') + ' from ' + filename;
+
+    previewTbody.innerHTML = '';
+    valid.forEach(function (c) {
+      var rows = buildCaseRow(c, '—', '—');
+      previewTbody.appendChild(rows[0]);
+      previewTbody.appendChild(rows[1]);
+    });
+
+    fillFilterOptions(previewFilterSelects.scope, uniqueSorted(valid.map(function (c) { return c.scope; })), 'All scopes');
+    fillFilterOptions(previewFilterSelects.category, uniqueSorted(valid.map(function (c) { return c.category || 'n/a'; })), 'All categories');
+    fillFilterOptions(previewFilterSelects.actual, ['—'], 'All actual');
+    fillFilterOptions(previewFilterSelects.result, ['—'], 'All results');
+
+    wireTableToggles(previewTbody);
+    wireCaseFilters(previewTbody, previewFilterSelects, previewFilterEmpty);
+  }
+
+  function showPreview(cases, filename) {
+    previewSection.style.display = 'block';
+    if (resultsSection) { resultsSection.style.display = 'none'; }
+    renderPreviewTable(cases, filename);
+  }
+
+  if (fileInput && previewSection) {
+    fileInput.addEventListener('change', function () {
+      var file = fileInput.files[0];
+      if (!file) { previewSection.style.display = 'none'; return; }
+      var reader = new FileReader();
+      reader.onload = function () {
+        var parsed;
+        try { parsed = JSON.parse(reader.result); } catch (e) {
+          previewSection.style.display = 'block';
+          if (resultsSection) { resultsSection.style.display = 'none'; }
+          showPreviewMessage('Could not read "' + file.name + '" as JSON.');
+          return;
+        }
+        if (!Array.isArray(parsed)) {
+          previewSection.style.display = 'block';
+          if (resultsSection) { resultsSection.style.display = 'none'; }
+          showPreviewMessage('Expected a JSON array of cases in "' + file.name + '".');
+          return;
+        }
+        var valid = parsed.filter(isValidCase);
+        saveStoredFile(file.name, valid);
+        showPreview(valid, file.name);
+      };
+      reader.readAsText(file);
+    });
+
+    var stored = loadStoredFile();
+    if (hasServerResults) {
+      previewSection.style.display = 'none';
+      if (stored) { attachStoredFileToInput(stored.filename, stored.cases); }
+    } else if (stored) {
+      showPreview(stored.cases, stored.filename);
+      attachStoredFileToInput(stored.filename, stored.cases);
+    }
+  }
+
+  // ---- chunking settings: persist across a Run (page reload) or a tab
+  // switch and back, until the user changes them. ----
+
+  var settingsFieldIds = ['max_chars', 'overlap_chars', 'max_chunks'];
+  var settingsFields = settingsFieldIds
+    .map(function (id) { return document.getElementById(id); })
+    .filter(Boolean);
+
+  (function restoreSettings() {
+    var saved;
+    try { saved = sessionStorage.getItem(SETTINGS_STORAGE_KEY); } catch (e) { return; }
+    if (!saved) return;
+    var data;
+    try { data = JSON.parse(saved); } catch (e) { return; }
+    if (!data) return;
+    settingsFields.forEach(function (field) {
+      if (typeof data[field.id] === 'string') { field.value = data[field.id]; }
+    });
+  })();
+
+  function saveSettings() {
+    var data = {};
+    settingsFields.forEach(function (field) { data[field.id] = field.value; });
+    try { sessionStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
+  }
+  settingsFields.forEach(function (field) { field.addEventListener('input', saveSettings); });
+
+  // ---- post-run results table: same toggle/filter wiring as the preview ----
+
+  var casesTbody = document.getElementById('cases-tbody');
+  if (casesTbody) {
+    wireTableToggles(casesTbody);
+    wireCaseFilters(casesTbody, {
+      scope: document.getElementById('cases-filter-scope'),
+      category: document.getElementById('cases-filter-category'),
+      actual: document.getElementById('cases-filter-actual'),
+      result: document.getElementById('cases-filter-result'),
+    }, document.getElementById('cases-filter-empty'));
+  }
+})();
+</script>
 {% endblock %}

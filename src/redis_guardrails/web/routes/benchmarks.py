@@ -7,7 +7,8 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 
 from redis_guardrails import GuardrailService
-from redis_guardrails.cli.core import classify, run_benchmark, summarize_performance
+from redis_guardrails.chunking import DEFAULT_MAX_CHARS, DEFAULT_MAX_CHUNKS, DEFAULT_OVERLAP_CHARS
+from redis_guardrails.cli.core import classify, run_benchmark, summarize_outcomes, summarize_performance
 from redis_guardrails.web.deps import get_service
 from redis_guardrails.web.templating import templates
 
@@ -21,6 +22,10 @@ def _parse_optional_int(raw: str) -> int | None:
     return int(raw) if raw else None
 
 
+def _chunk_setting(value: int | None, default: int) -> dict:
+    return {"value": value if value is not None else default, "is_default": value is None}
+
+
 def _preset_files() -> list[str]:
     if not DATA_DIR.is_dir():
         return []
@@ -32,8 +37,7 @@ def benchmarks_form(request: Request):
     return templates.TemplateResponse(
         request,
         "benchmarks/index.html",
-        {"presets": _preset_files(), "cases": None, "performance": None,
-         "classify": classify, "error": None},
+        {"cases": None, "performance": None, "outcomes": None, "classify": classify, "error": None},
     )
 
 
@@ -75,7 +79,7 @@ async def run_benchmarks(
         return templates.TemplateResponse(
             request,
             "benchmarks/index.html",
-            {"presets": presets, "cases": None, "performance": None,
+            {"cases": None, "performance": None, "outcomes": None,
              "classify": classify,
              "error": f"case is missing required key {exc} (old input/output-key "
                       "benchmark files need migrating to the scope/text schema)"},
@@ -85,8 +89,7 @@ async def run_benchmarks(
         return templates.TemplateResponse(
             request,
             "benchmarks/index.html",
-            {"presets": presets, "cases": None, "performance": None,
-             "classify": classify, "error": str(exc)},
+            {"cases": None, "performance": None, "outcomes": None, "classify": classify, "error": str(exc)},
             status_code=400,
         )
     finally:
@@ -94,9 +97,22 @@ async def run_benchmarks(
             tmp_path.unlink(missing_ok=True)
 
     performance = summarize_performance(cases)
+    outcomes = summarize_outcomes(cases)
+    case_filters = {
+        "scopes": sorted({c.scope for c in cases}),
+        "categories": sorted({c.category or "n/a" for c in cases}),
+        "actuals": sorted({c.result.action or "n/a" for c in cases}),
+        "results": sorted({classify(c) for c in cases}),
+    }
+    chunk_settings = {
+        "max_chars": _chunk_setting(overrides["max_chars"], DEFAULT_MAX_CHARS),
+        "overlap_chars": _chunk_setting(overrides["overlap_chars"], DEFAULT_OVERLAP_CHARS),
+        "max_chunks": _chunk_setting(overrides["max_chunks"], DEFAULT_MAX_CHUNKS),
+    }
     return templates.TemplateResponse(
         request,
         "benchmarks/index.html",
-        {"presets": presets, "cases": cases, "performance": performance,
+        {"cases": cases, "performance": performance, "outcomes": outcomes,
+         "case_filters": case_filters, "chunk_settings": chunk_settings,
          "classify": classify, "error": None},
     )

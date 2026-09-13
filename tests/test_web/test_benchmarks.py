@@ -5,13 +5,11 @@ from pathlib import Path
 from redis_guardrails.models import Match
 
 
-def test_index_lists_preset_files(client, tmp_path, monkeypatch):
-    (tmp_path / "sample.json").write_text("[]")
-    monkeypatch.setattr("redis_guardrails.web.routes.benchmarks.DATA_DIR", tmp_path)
-
+def test_index_renders_upload_only_form(client):
     response = client.get("/benchmarks")
     assert response.status_code == 200
-    assert "sample.json" in response.text
+    assert "Load file" in response.text
+    assert "preset_path" not in response.text
 
 
 def test_run_with_preset_shows_pass_fail_and_summary(client, store, tmp_path, monkeypatch):

@@ -72,7 +72,7 @@ body {
 h1, h2, h3 { line-height: 1.25; margin-top: 0; font-family: var(--font-sans); }
 h1 { font-size: 1.6rem; font-weight: 500; letter-spacing: -0.01em; margin-bottom: var(--space-4); }
 h2 { font-size: 1.2rem; font-weight: 500; margin-bottom: var(--space-3); }
-h3 { font-size: 0.85rem; font-weight: 500; color: var(--color-text-muted); margin-bottom: var(--space-2); }
+h3 { font-size: 0.85rem; font-weight: 500; color: var(--color-text-muted); margin: var(--space-6) 0 var(--space-2); }
 
 a { color: var(--color-primary); }
 
@@ -358,6 +358,17 @@ hr { border: none; border-top: 1px solid var(--color-border); margin: var(--spac
 .examples-row-cat { color: var(--color-text-muted); font-size: 0.85rem; flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .examples-row-text { font-size: 0.9rem; white-space: normal; overflow-wrap: break-word; }
 
+/* Cases table (used for both the pre-run preview and the post-run results):
+   per-row "+" toggle revealing the case text in a full-width row */
+.table-toggle {
+  background: none; border: 0; padding: 0; cursor: pointer;
+  color: var(--color-primary); font-family: var(--font-mono); font-size: 1rem; line-height: 1;
+}
+.case-text-row td.case-text-cell {
+  background: var(--color-surface-elev); font-size: 0.9rem; color: var(--color-text-muted);
+  white-space: normal; overflow-wrap: break-word;
+}
+
 .result-placeholder {
   display: flex; align-items: center; justify-content: center; text-align: center;
   min-height: 220px; color: var(--color-text-muted); padding: var(--space-6); font-size: 0.9rem;
@@ -398,10 +409,6 @@ hr { border: none; border-top: 1px solid var(--color-border); margin: var(--spac
 }
 .stat-tile-value { font-size: 1.4rem; }
 .stat-tile-value.mono { font-family: var(--font-mono); }
-
-.source-toggle { display: flex; flex-direction: column; gap: var(--space-3); }
-.source-option { display: flex; align-items: center; gap: var(--space-3); }
-.source-option select, .source-option input[type="file"] { max-width: 320px; }
 
 /* ---- Prompt screen: gauge, verdict ---- */
 

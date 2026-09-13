@@ -89,6 +89,7 @@ def evaluate_prompt(
 class CaseResult:
     case_id: str
     scope: Scope
+    text: str
     category: str | None
     expected_action: Action
     result: EvaluationResult
@@ -116,6 +117,7 @@ def run_benchmark(
             CaseResult(
                 case_id=case["id"],
                 scope=case["scope"],
+                text=case["text"],
                 category=case["category"],
                 expected_action=case["action"],
                 result=result,
@@ -134,6 +136,51 @@ def classify(case: CaseResult) -> str:
     if case.result.action == "ALLOW":
         return "FALSE_NEGATIVE"
     return "WRONG_SEVERITY"
+
+
+@dataclass
+class CategoryAccuracy:
+    category: str
+    total: int
+    passed: int
+    accuracy: float
+
+
+@dataclass
+class OutcomeSummary:
+    total: int
+    passed: int
+    false_positives: int
+    false_negatives: int
+    wrong_severity: int
+    indeterminate: int
+    accuracy: float
+    by_category: list[CategoryAccuracy]
+
+
+def summarize_outcomes(cases: list[CaseResult]) -> OutcomeSummary:
+    outcomes = [classify(c) for c in cases]
+    total = len(cases)
+    passed = outcomes.count("PASS")
+    accuracy = (passed / total * 100) if total else 0.0
+
+    by_category: list[CategoryAccuracy] = []
+    for category in sorted({c.category or "n/a" for c in cases}):
+        cat_cases = [c for c in cases if (c.category or "n/a") == category]
+        cat_passed = sum(1 for c in cat_cases if classify(c) == "PASS")
+        by_category.append(CategoryAccuracy(
+            category=category, total=len(cat_cases), passed=cat_passed,
+            accuracy=(cat_passed / len(cat_cases) * 100) if cat_cases else 0.0,
+        ))
+
+    return OutcomeSummary(
+        total=total, passed=passed,
+        false_positives=outcomes.count("FALSE_POSITIVE"),
+        false_negatives=outcomes.count("FALSE_NEGATIVE"),
+        wrong_severity=outcomes.count("WRONG_SEVERITY"),
+        indeterminate=outcomes.count("INDETERMINATE"),
+        accuracy=accuracy, by_category=by_category,
+    )
 
 
 @dataclass

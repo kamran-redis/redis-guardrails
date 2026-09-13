@@ -117,7 +117,7 @@ def _eval_result(**overrides) -> EvaluationResult:
 
 def _case_result(**overrides) -> CaseResult:
     defaults = dict(
-        case_id="c-1", scope="input", category="cat", expected_action="BLOCK", result=_eval_result()
+        case_id="c-1", scope="input", text="hello", category="cat", expected_action="BLOCK", result=_eval_result()
     )
     defaults.update(overrides)
     return CaseResult(**defaults)
