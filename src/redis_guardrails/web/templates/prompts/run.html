@@ -34,17 +34,6 @@
 
       <button type="submit" data-loading-text="Checking…" {% if not scopes %}disabled{% endif %}>Check message</button>
 
-      <details class="disclosure" id="examples-disclosure">
-        <summary>Examples:</summary>
-        <div class="disclosure-body">
-          <input type="file" id="examples-file-input" accept=".json" style="display:none">
-          <button type="button" class="btn-link secondary small" id="examples-load-btn" style="margin-bottom: var(--space-3);">Load file</button>
-          <div id="examples-body">
-            <p class="examples-empty">No file loaded yet. Upload a file to browse examples.</p>
-          </div>
-        </div>
-      </details>
-
       <details class="disclosure">
         <summary>Settings:</summary>
         <div class="disclosure-body">
@@ -159,6 +148,19 @@
     </div>
     {% endif %}
   </div>
+</div>
+
+<div style="margin-top: var(--space-6);">
+  <details class="disclosure" id="examples-disclosure">
+    <summary>Examples:</summary>
+    <div class="disclosure-body">
+      <input type="file" id="examples-file-input" accept=".json" style="display:none">
+      <button type="button" class="btn-link secondary small" id="examples-load-btn" style="margin-bottom: var(--space-3);">Load file</button>
+      <div id="examples-body">
+        <p class="examples-empty">No file loaded yet. Load a file to browse examples.</p>
+      </div>
+    </div>
+  </details>
 </div>
 
 <script>
