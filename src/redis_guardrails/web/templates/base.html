@@ -16,7 +16,7 @@
         </a>
         <nav>
             <a href="/" class="{{ 'active' if request.url.path == '/' else '' }}">Home</a>
-            <a href="/prompts/evaluate" class="{{ 'active' if request.url.path.startswith('/prompts') else '' }}">Run Prompt</a>
+            <a href="/prompts/evaluate" class="{{ 'active' if request.url.path.startswith('/prompts') else '' }}">Check Message</a>
             <a href="/benchmarks" class="{{ 'active' if request.url.path.startswith('/benchmarks') else '' }}">Benchmarks</a>
             <a href="/guardrails" class="{{ 'active' if request.url.path.startswith('/guardrails') else '' }}">Guardrails</a>
         </nav>

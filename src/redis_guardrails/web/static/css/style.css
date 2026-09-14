@@ -293,13 +293,15 @@ hr { border: none; border-top: 1px solid var(--color-border); margin: var(--spac
 .actions { display: flex; gap: var(--space-3); align-items: center; }
 
 .tabs { display: flex; gap: var(--space-5); margin-bottom: var(--space-5); border-bottom: 1px solid var(--color-border); }
-.tabs a {
+.tabs a, .tabs label {
   display: inline-block; padding: var(--space-3) 0.25rem; margin-bottom: -1px;
   color: var(--color-text-muted); text-decoration: none; font-weight: 400; font-size: 0.9rem;
-  border-bottom: 2px solid transparent; text-transform: capitalize;
+  border-bottom: 2px solid transparent; text-transform: capitalize; cursor: pointer;
 }
-.tabs a:hover { color: var(--color-text); }
-.tabs a.active { color: var(--color-text); font-weight: 500; border-bottom-color: var(--color-primary); }
+.tabs a:hover, .tabs label:hover { color: var(--color-text); }
+.tabs a.active, .tabs input:checked + label { color: var(--color-text); font-weight: 500; border-bottom-color: var(--color-primary); }
+.tabs input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.tabs input:focus-visible + label { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .tabs .spacer { flex: 1; }
 
 .empty-state {
@@ -326,18 +328,6 @@ hr { border: none; border-top: 1px solid var(--color-border); margin: var(--spac
   .evaluate-layout { grid-template-columns: minmax(0, 1fr); }
   .evaluate-layout .result-column { position: static; }
 }
-
-/* Dark scope toggle (pill selector), matching the brand's rd-toggle component */
-.rd-toggle { display: inline-flex; align-items: stretch; background: var(--color-text); border-radius: var(--radius-md); padding: 6px; gap: 4px; }
-.rd-toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; }
-.rd-toggle label {
-  margin: 0; padding: 0.625rem 1.375rem; border-radius: 5px; border: 1px solid transparent;
-  font-weight: 500; font-size: 0.875rem; color: var(--color-text-subtle); cursor: pointer;
-  text-transform: capitalize; transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
-}
-.rd-toggle label:hover { color: #fff; }
-.rd-toggle input:checked + label { background: #351d22; color: #fff; border-color: var(--color-primary); }
-.rd-toggle input:focus-visible + label { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 
 .examples-empty { color: var(--color-text-muted); font-size: 0.9rem; margin: 0; }
 .examples-error { color: var(--color-primary); }

@@ -1,7 +1,7 @@
 def test_home_page_renders_nav_links(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert "Run a prompt" in response.text
+    assert "Check Message" in response.text
     assert "Run a benchmark" in response.text
     assert "Manage guardrails" in response.text
 

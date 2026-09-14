@@ -4,7 +4,7 @@ from redis_guardrails.models import Guardrail, Match
 def test_evaluate_get_renders_empty_form(client):
     response = client.get("/prompts/evaluate")
     assert response.status_code == 200
-    assert "Run a Prompt" in response.text
+    assert "Check Message" in response.text
 
 
 def test_evaluate_get_with_no_scopes_shows_empty_state_not_broken_form(client):

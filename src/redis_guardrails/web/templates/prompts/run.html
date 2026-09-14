@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Run a Prompt{% endblock %}
+{% block title %}Check Message{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
-    <h1>Run a prompt</h1>
+    <h1>Check Message</h1>
     <p class="page-subtitle">Check a single message against the guardrails for its scope.</p>
   </div>
 </div>
@@ -16,7 +16,7 @@
       <div class="field">
         <label>Scope</label>
         {% if scopes %}
-        <div class="rd-toggle" role="radiogroup" aria-label="Scope">
+        <div class="tabs" role="radiogroup" aria-label="Scope" style="margin-bottom: 0;">
           {% for s in scopes %}
           <input type="radio" id="scope-{{ s }}" name="scope" value="{{ s }}" {% if s == scope or (not scope and loop.first) %}checked{% endif %}>
           <label for="scope-{{ s }}">{{ s }}</label>
